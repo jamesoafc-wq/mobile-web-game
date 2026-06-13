@@ -1,36 +1,58 @@
-# One-Tap Drift
+# Top-Down Golf
 
-A mobile-first browser game for GitHub Pages.
+A mobile-first top-down golf game for GitHub Pages.
 
-## Concept
+## Current focus
 
-Hold the screen to drift right. Release to curve left. Stay inside the road gaps and survive as long as possible.
+The first build is a mechanics sandbox, not the final career mode. The goal is to get the feel of golf right before adding progression, customisation, tournaments, money, sponsors, or multiple courses.
 
-## Why this is a good first phone game
+## Prototype features
 
-- One-touch controls are simple on mobile.
-- It runs as a static website: HTML, CSS, and JavaScript only.
-- GitHub Pages can host it without a backend.
-- The mechanic is easy to expand with skins, coins, levels, and daily challenges.
+- One playable par-4 style hole.
+- Pull-back mobile aiming and power control.
+- Golf bag club selection:
+  - Driver
+  - 3 Wood
+  - 5 Iron
+  - 7 Iron
+  - Pitching Wedge
+  - Sand Wedge
+  - Putter
+- Different surfaces:
+  - Tee
+  - Fairway
+  - Rough
+  - Sand
+  - Green
+  - Water hazard
+- Surface-based distance, accuracy, and roll/friction differences.
+- Tee shots, approach shots, bunker recovery, and putting.
+- Stroke counter and distance-to-pin display.
+
+## Control scheme
+
+Pull back from the ball, aim, then release. The farther you drag, the more power the shot has.
+
+## Development plan
+
+1. Tune club distances and shot feel.
+2. Improve putting sensitivity.
+3. Add more hole layouts.
+4. Add wind after the base mechanics feel good.
+5. Add career mode progression.
+6. Add player customisation, club upgrades, cosmetics, and unlockable courses.
 
 ## GitHub Pages setup
 
-1. Create a new public repository, for example `mobile-web-game`.
-2. Upload these files to the repository root:
-   - `index.html`
-   - `style.css`
-   - `game.js`
-   - `.nojekyll`
-3. Go to **Settings → Pages**.
-4. Set **Source** to **Deploy from a branch**.
-5. Choose `main` and `/ (root)`, then save.
-6. Visit the Pages URL once GitHub finishes deployment.
+This game uses static files only:
 
-## Next features
+- `index.html`
+- `style.css`
+- `game.js`
+- `.nojekyll`
 
-- Add sound effects.
-- Add collectible coins.
-- Add unlockable car skins.
-- Add a menu screen.
-- Add difficulty modes.
-- Add landscape/portrait tuning.
+To publish, go to **Settings → Pages**, choose **Deploy from a branch**, then select `main` and `/ (root)`.
+
+## Design notes
+
+See `GOLF_MECHANICS.md` for the shot model, club rules, surface penalties, and planned future mechanics.
