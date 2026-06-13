@@ -40,6 +40,7 @@ The sweet spot changes per club, surface, and shot power:
 
 - Driver is harder than irons, even from the tee.
 - Woods are also difficult, especially from fairway/rough.
+- Driver and 3 Wood are now extremely punishing off the deck, so they are mainly tee-shot clubs.
 - Mid irons are easier from tee and fairway.
 - Wedges are easier from fairway/rough but harder from bunkers.
 - Sand adds a large difficulty penalty, so bunker recovery is not easy.
@@ -107,22 +108,22 @@ Approximate max carry/roll by club and surface:
 
 | Club | Tee | Fairway | Rough | Sand | Green |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Driver | 285 yd | 225 yd | 70 yd | 0 yd | 25 yd |
-| 3 Wood | 245 yd | 215 yd | 90 yd | 0 yd | 22 yd |
+| Driver | 285 yd | 45 yd | 15 yd | 0 yd | 8 yd |
+| 3 Wood | 245 yd | 75 yd | 25 yd | 0 yd | 10 yd |
 | 5 Iron | 185 yd | 175 yd | 125 yd | 35 yd | 18 yd |
 | 7 Iron | 155 yd | 145 yd | 110 yd | 45 yd | 16 yd |
 | Pitching Wedge | 108 yd | 102 yd | 82 yd | 55 yd | 12 yd |
 | Sand Wedge | 84 yd | 78 yd | 62 yd | 70 yd | 10 yd |
 | Putter | 24 yd | 22 yd | 8 yd | 0 yd | 45 yd |
 
-This should make club choice much clearer. For example, Driver is excellent from the tee, weaker from rough, and unusable from sand.
+This should make club choice much clearer. Driver and 3 Wood are strong from the tee but intentionally poor from the fairway/rough, so approach shots should usually use irons or wedges.
 
 ## Lie and surface rules
 
 | Surface | Carry behaviour | Accuracy | Timing difficulty | Roll/friction | Gameplay purpose |
 | --- | --- | --- | --- | --- | --- |
 | Tee | Strong driver carry, but not green-reaching on a par 4 | normal | easiest lie, club still matters | modest roll | Strong first shot |
-| Fairway | Strong carry | normal | easy-medium | good roll | Ideal landing area |
+| Fairway | Strong carry for irons/wedges; weak for driver/3W off the deck | normal | easy-medium, but long clubs are very hard | good roll | Ideal landing area |
 | Rough | Reduced carry | worse | hard | little roll | Punishes misses without stopping play |
 | Sand | Only wedges work well | much worse | very hard | plug/stop, almost no bounce | Forces recovery shots |
 | Green | Best for putting | accurate | low-medium | high roll | Putting surface |
@@ -134,6 +135,7 @@ The prototype uses a simple 2D model:
 
 - Club + current lie chooses a maximum carry/roll distance from the matrix.
 - Drag power scales that maximum.
+- Driver and 3 Wood have severely reduced carry when not hit from the tee.
 - Release opens a timing bar instead of immediately striking the shot.
 - Club, surface, and power combine into a difficulty rating.
 - Harder shots have a smaller sweet spot and faster moving marker.
