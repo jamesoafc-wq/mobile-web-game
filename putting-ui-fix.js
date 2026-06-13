@@ -1,142 +1,97 @@
-// Putting and UI hotfix layer.
-// Loaded after game.js so the visual build can be tuned without rewriting the full file.
+// Minimal putting and UI hotfix layer.
+// Keep this small: wrap the original game functions instead of replacing full shot logic.
 
-function isPuttingLie(lie = getLie()) {
+function isPuttingLieNow() {
+  const lie = getLie();
   return lie === 'green' || lie === 'fringe';
 }
 
-isPuttingView = function isPuttingViewByLie() {
-  return isPuttingLie() && !ball.holed;
+const originalIsPuttingViewHotfix = isPuttingView;
+isPuttingView = function isPuttingViewByLieHotfix() {
+  try {
+    return isPuttingLieNow() && !ball.holed;
+  } catch (error) {
+    return originalIsPuttingViewHotfix();
+  }
 };
 
-function autoSelectPutterIfOnGreen() {
-  if (!isPuttingLie() || ball.moving || ball.flight || ball.holed) return;
+function selectPutterOnSettledGreen() {
+  if (!ball || ball.moving || ball.flight || ball.holed) return;
+  if (!isPuttingLieNow()) return;
   if (selectedClub !== 'putter') {
     selectedClub = 'putter';
     updateClubButtons();
   }
 }
 
-const baseStopBallOnGreenIfSlowForPuttingFix = stopBallOnGreenIfSlow;
-stopBallOnGreenIfSlow = function stopBallOnGreenIfSlowWithAutoPutter() {
-  baseStopBallOnGreenIfSlowForPuttingFix();
-  autoSelectPutterIfOnGreen();
-};
+function forceStopDeadPutt() {
+  if (!ball || !ball.moving || ball.flight || ball.holed) return;
+  if (!isPuttingLieNow()) return;
 
-startLandingRoll = function startLandingRollWithControlledRollout(angle, lie, carryYards, clubKey) {
-  const club = clubs[clubKey];
-  if (lie === 'water') {
-    applyPenalty('Water hazard. One-stroke penalty.');
-    return;
-  }
-  if (lie === 'sand') {
-    ball.moving = false;
+  const speed = Math.hypot(ball.vx, ball.vy);
+  if (speed < 0.018) {
     ball.vx = 0;
     ball.vy = 0;
-    message = 'Plugged in the bunker. Almost no bounce or roll.';
-    updateHud();
-    return;
-  }
-
-  const rollFactor = ({ tee: 0.14, fairway: 0.12, rough: 0.035, fringe: 0.045, green: 0.018 }[lie] ?? 0.05);
-  const rollYards = carryYards * (club.rollBias || 0.5) * rollFactor * (0.82 + Math.random() * 0.22);
-  const rollPixels = rollYards / YARDS_PER_PIXEL;
-  const surfaceFriction = rollFriction[lie] ?? 0.98;
-  const speed = rollPixels * (1 - surfaceFriction) * 1.12;
-
-  ball.vx = Math.cos(angle) * speed;
-  ball.vy = Math.sin(angle) * speed;
-  ball.moving = speed > 0.025;
-
-  if (!ball.moving) {
+    ball.moving = false;
     lastSafe = { x: ball.x, y: ball.y };
-    autoSelectPutterIfOnGreen();
+    message = 'Ball has settled on the green. Read the slope and pace.';
+    selectPutterOnSettledGreen();
+    updateHud();
   }
-};
+}
 
-resolveSkillShot = function resolveSkillShotWithPuttScale() {
-  if (!pendingShot) return;
-  const marker = getSkillMarkerPosition();
-  const halfSweet = pendingShot.sweetWidth / 2;
-  const middleWidth = clamp(pendingShot.sweetWidth + 0.28 - pendingShot.difficulty * 0.06, pendingShot.sweetWidth + 0.14, 0.48);
-  const halfMiddle = middleWidth / 2;
-  const error = marker - 0.5;
-  const absError = Math.abs(error);
-  const side = Math.sign(error) || 1;
-  let zone = 'sweet';
-  let label = 'Perfect strike';
-  let carryMultiplier = 1;
-  let angleOffsetDeg = 0;
-  let curvePixels = 0;
+const originalResolveSkillShotHotfix = resolveSkillShot;
+resolveSkillShot = function resolveSkillShotWithScaledPutterHotfix() {
+  const shotBefore = pendingShot ? {
+    clubKey: pendingShot.clubKey,
+    lie: pendingShot.lie,
+    maxCarry: pendingShot.maxCarry,
+    power: pendingShot.power,
+    baseAngle: pendingShot.baseAngle
+  } : null;
 
-  if (absError <= halfSweet) {
-    zone = 'sweet';
-    label = 'Perfect strike';
-  } else if (absError <= halfMiddle) {
-    zone = 'middle';
-    const middleMiss = clamp((absError - halfSweet) / Math.max(0.01, halfMiddle - halfSweet), 0, 1);
-    label = 'Good contact';
-    carryMultiplier = clamp(0.98 - middleMiss * 0.08, 0.9, 0.98);
-    angleOffsetDeg = side * (1 + middleMiss * 2.4 + pendingShot.difficulty * 1.2);
-    curvePixels = side * middleMiss * pendingShot.difficulty * 7;
+  originalResolveSkillShotHotfix();
+
+  // The visual build's original putter speed used a fixed multiplier that made short putts too hot.
+  // Let the normal strike result happen, then rescale only putter velocity to the intended roll distance.
+  if (!shotBefore || shotBefore.clubKey !== 'putter' || !ball || ball.holed) return;
+
+  const currentSpeed = Math.hypot(ball.vx, ball.vy);
+  const angle = currentSpeed > 0 ? Math.atan2(ball.vy, ball.vx) : shotBefore.baseAngle;
+  const rollPixels = (shotBefore.maxCarry * shotBefore.power) / YARDS_PER_PIXEL;
+  const friction = rollFriction[shotBefore.lie] ?? rollFriction.green;
+  const correctedSpeed = rollPixels * (1 - friction) * 1.05;
+
+  if (correctedSpeed <= 0.018) {
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.moving = false;
+    lastSafe = { x: ball.x, y: ball.y };
+    message = 'Ball has settled on the green. Read the slope and pace.';
+    selectPutterOnSettledGreen();
   } else {
-    zone = 'bad';
-    const badMiss = clamp((absError - halfMiddle) / Math.max(0.01, 0.5 - halfMiddle), 0, 1);
-    label = badMiss > 0.55 ? (side < 0 ? 'Hooked it' : 'Sliced it') : 'Poor contact';
-    carryMultiplier = clamp(1 - badMiss * (0.18 + pendingShot.difficulty * 0.22), 0.58, 0.88);
-    angleOffsetDeg = side * (2.5 + badMiss * 7 + pendingShot.difficulty * 4);
-    curvePixels = side * (12 + badMiss * 44 + pendingShot.difficulty * 20);
-  }
-
-  const club = clubs[pendingShot.clubKey];
-  const random = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
-  const lieFactor = surfaceDifficulty[pendingShot.lie] ?? 0.2;
-  const randomOffset = radians(random * club.accuracy * (0.35 + pendingShot.power) * (0.7 + lieFactor));
-  const angle = pendingShot.baseAngle + randomOffset + radians(angleOffsetDeg);
-  const carryYards = pendingShot.maxCarry * pendingShot.power * carryMultiplier;
-
-  skillFeedback = { label, zone, startedAt: performance.now() };
-  strokes += 1;
-  const carryPixels = carryYards / YARDS_PER_PIXEL;
-  lastSafe = { x: ball.x, y: ball.y };
-
-  if (club.type === 'putt') {
-    const lieFriction = rollFriction[pendingShot.lie] ?? rollFriction.green;
-    const speed = carryPixels * (1 - lieFriction) * 1.08;
-    ball.vx = Math.cos(angle) * speed;
-    ball.vy = Math.sin(angle) * speed;
-    ball.moving = speed > 0.018;
-    ball.flight = null;
-    message = `${label}. Putt for ${Math.round(carryYards)} yd.`;
-  } else {
+    ball.vx = Math.cos(angle) * correctedSpeed;
+    ball.vy = Math.sin(angle) * correctedSpeed;
     ball.moving = true;
-    ball.flight = {
-      startX: ball.x,
-      startY: ball.y,
-      endX: ball.x + Math.cos(angle) * carryPixels,
-      endY: ball.y + Math.sin(angle) * carryPixels,
-      angle,
-      progress: 0,
-      duration: clamp(20 + carryPixels / 7, 20, 60),
-      carryYards,
-      curvePixels,
-      height: club.flightHeight,
-      clubKey: pendingShot.clubKey
-    };
-    message = `${label}. Carry ${Math.round(carryYards)} yd.`;
   }
 
-  pendingShot = null;
   updateHud();
 };
 
-const baseUpdateRollForPuttingFix = updateRoll;
-updateRoll = function updateRollWithAutoPutter() {
-  baseUpdateRollForPuttingFix();
-  autoSelectPutterIfOnGreen();
+const originalUpdateRollHotfix = updateRoll;
+updateRoll = function updateRollWithPuttingSettleHotfix() {
+  originalUpdateRollHotfix();
+  forceStopDeadPutt();
+  selectPutterOnSettledGreen();
 };
 
-drawOverlayInfo = function drawInCanvasHud() {
+const originalStartLandingRollHotfix = startLandingRoll;
+startLandingRoll = function startLandingRollWithAutoPutterHotfix(angle, lie, carryYards, clubKey) {
+  originalStartLandingRollHotfix(angle, lie, carryYards, clubKey);
+  selectPutterOnSettledGreen();
+};
+
+drawOverlayInfo = function drawInCanvasHudHotfix() {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
