@@ -1,58 +1,41 @@
-# Top-Down Golf
+# Top-Down Golf Prototype
 
-A mobile-first top-down golf game for GitHub Pages.
+A mobile-first browser golf prototype designed for GitHub Pages.
 
-## Current focus
+## Included systems
+- Pull-back aiming
+- Club selection
+- Shot timing / strike bar
+- Carry and roll by club and lie
+- Natural bunker and water shapes
+- Green zoom putting mode
+- Pace-sensitive cup capture
+- Green break with reusable slope data
+- Reusable prop library for future holes
+- Surface textures and subtle animated water
 
-The first build is a mechanics sandbox, not the final career mode. The goal is to get the feel of golf right before adding progression, customisation, tournaments, money, sponsors, or multiple courses.
+## File structure
+- `index.html` — shell and UI
+- `style.css` — app styling
+- `shared.js` — utility functions
+- `hole-data.js` — hole layout, slopes, props
+- `props.js` — reusable course prop library
+- `surface-rendering.js` — textures, water, surfaces, prop drawing
+- `game.js` — game mechanics and rendering loop
+- `COURSE_VISUAL_STYLE.md` — reusable art direction notes
+- `IMPLEMENTATION_PLAN.md` — file-by-file implementation notes
 
-## Prototype features
-
-- One playable par-4 style hole.
-- Pull-back mobile aiming and power control.
-- Golf bag club selection:
-  - Driver
-  - 3 Wood
-  - 5 Iron
-  - 7 Iron
-  - Pitching Wedge
-  - Sand Wedge
-  - Putter
-- Different surfaces:
-  - Tee
-  - Fairway
-  - Rough
-  - Sand
-  - Green
-  - Water hazard
-- Surface-based distance, accuracy, and roll/friction differences.
-- Tee shots, approach shots, bunker recovery, and putting.
-- Stroke counter and distance-to-pin display.
-
-## Control scheme
-
-Pull back from the ball, aim, then release. The farther you drag, the more power the shot has.
-
-## Development plan
-
-1. Tune club distances and shot feel.
-2. Improve putting sensitivity.
-3. Add more hole layouts.
-4. Add wind after the base mechanics feel good.
-5. Add career mode progression.
-6. Add player customisation, club upgrades, cosmetics, and unlockable courses.
+## Reusable props
+Repeated course props are defined in `props.js` and placed as instances in `hole-data.js`. This allows future holes to reuse the same signs, tee markers, trees, benches, shrubs, rocks, and optional features like bridges while keeping a consistent course identity.
 
 ## GitHub Pages setup
+1. Push these files to the repository root.
+2. Ensure `.nojekyll` is included.
+3. In GitHub repository settings, enable **Pages** from the `main` branch root.
 
-This game uses static files only:
-
-- `index.html`
-- `style.css`
-- `game.js`
-- `.nojekyll`
-
-To publish, go to **Settings → Pages**, choose **Deploy from a branch**, then select `main` and `/ (root)`.
-
-## Design notes
-
-See `GOLF_MECHANICS.md` for the shot model, club rules, surface penalties, and planned future mechanics.
+## Notes for future holes
+Future holes should continue using:
+- organic, natural surface outlines rather than perfect ellipses
+- the shared prop library
+- optional decorative features only where they suit the hole
+- very subtle water animation only
