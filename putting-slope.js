@@ -11,7 +11,7 @@ const greenSlopeZones = [
     rotation: -0.22,
     dx: 0.72,
     dy: 0.02,
-    strength: 0.00125,
+    strength: 0.0011,
     label: "Gentle fall right"
   },
   {
@@ -22,7 +22,7 @@ const greenSlopeZones = [
     rotation: 0.18,
     dx: -0.58,
     dy: 0.08,
-    strength: 0.00105,
+    strength: 0.00095,
     label: "Upper shelf left"
   },
   {
@@ -33,7 +33,7 @@ const greenSlopeZones = [
     rotation: 0.08,
     dx: 0.08,
     dy: -0.44,
-    strength: 0.00082,
+    strength: 0.00072,
     label: "Back-to-front grain"
   }
 ];
@@ -75,18 +75,72 @@ function getGreenSlopeAt(x, y) {
   };
 }
 
+function settleSlowGreenRoll() {
+  if (!ball.moving || ball.holed || ball.flight || ball.bounce) return;
+  if (surfaceAt(ball.x, ball.y) !== "green") return;
+
+  const speed = Math.hypot(ball.vx, ball.vy);
+
+  // Prevent tiny slope nudges from creating near-endless trickle.
+  if (speed < 0.052) {
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.visualScale = 1;
+    ball.moving = false;
+    lastSafe = { x: ball.x, y: ball.y };
+    updateSuggestedClub("green");
+    message = "On the green. Read the slope and pace.";
+    updateHud();
+    return;
+  }
+
+  if (speed < 0.095) {
+    ball.vx *= 0.76;
+    ball.vy *= 0.76;
+  }
+}
+
 function applyGreenSlopeToPutt() {
   if (!ball.moving || ball.holed || ball.flight || ball.bounce) return;
   if (surfaceAt(ball.x, ball.y) !== "green") return;
 
+  const speed = Math.hypot(ball.vx, ball.vy);
+  if (speed < 0.052) return;
+
   const slope = getGreenSlopeAt(ball.x, ball.y);
   if (slope.strength <= 0.00008) return;
 
-  const speed = Math.hypot(ball.vx, ball.vy);
-  const lowSpeedBreak = clamp(0.78 - speed * 0.38, 0.22, 0.82);
+  const lowSpeedBreak = clamp(0.62 - speed * 0.32, 0.16, 0.64);
 
   ball.vx += slope.x * lowSpeedBreak;
   ball.vy += slope.y * lowSpeedBreak;
+}
+
+function drawFlowSegment(x, y, ux, uy, strength, lanePhase) {
+  const pathLength = clamp(17 + strength * 1900, 17, 25);
+  const dashLength = clamp(5.5 + strength * 1100, 5.5, 9);
+  const t = lanePhase;
+  const edgeFade = Math.sin(t * Math.PI);
+  if (edgeFade <= 0.04) return;
+
+  const centerOffset = (t - 0.5) * pathLength;
+  const cx = x + ux * centerOffset;
+  const cy = y + uy * centerOffset;
+  const startX = cx - ux * dashLength * 0.5;
+  const startY = cy - uy * dashLength * 0.5;
+  const endX = cx + ux * dashLength * 0.5;
+  const endY = cy + uy * dashLength * 0.5;
+
+  ctx.globalAlpha = clamp((0.12 + strength * 120) * edgeFade, 0.04, 0.38);
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+
+  ctx.globalAlpha *= 0.78;
+  ctx.beginPath();
+  ctx.arc(endX, endY, clamp(0.85 + strength * 280, 0.85, 1.45), 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawSlopeDash(x, y, slope, index) {
@@ -96,32 +150,21 @@ function drawSlopeDash(x, y, slope, index) {
   const length = Math.hypot(slope.x, slope.y) || 1;
   const ux = slope.x / length;
   const uy = slope.y / length;
-  const phase = (performance.now() / 1550 + index * 0.07) % 1;
-  const dashLength = clamp(9 + strength * 2200, 9, 15);
-  const drift = (phase - 0.5) * 5;
-  const cx = x + ux * drift;
-  const cy = y + uy * drift;
-  const startX = cx - ux * dashLength * 0.5;
-  const startY = cy - uy * dashLength * 0.5;
-  const endX = cx + ux * dashLength * 0.5;
-  const endY = cy + uy * dashLength * 0.5;
+  const basePhase = (performance.now() / 2100 + index * 0.041) % 1;
 
   ctx.save();
-  ctx.globalAlpha = clamp(0.18 + strength * 170, 0.18, 0.46);
-  ctx.strokeStyle = "rgba(245, 255, 215, 0.92)";
-  ctx.lineWidth = clamp(1 + strength * 520, 1, 1.8);
+  ctx.strokeStyle = "rgba(245, 255, 220, 0.92)";
+  ctx.fillStyle = "rgba(245, 255, 220, 0.92)";
+  ctx.lineWidth = clamp(0.9 + strength * 330, 0.9, 1.35);
   ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.lineTo(endX, endY);
-  ctx.stroke();
 
-  // Tiny leading dot gives direction without ugly arrowheads.
-  ctx.globalAlpha *= 0.78;
-  ctx.fillStyle = "rgba(245, 255, 215, 0.92)";
-  ctx.beginPath();
-  ctx.arc(endX, endY, clamp(1 + strength * 380, 1, 1.8), 0, Math.PI * 2);
-  ctx.fill();
+  // Conveyor-style flow: segments fade in at the back and fade out at the front.
+  // The reset happens only at zero alpha, avoiding the old snap-back look.
+  for (let i = 0; i < 3; i += 1) {
+    const lanePhase = (basePhase + i / 3) % 1;
+    drawFlowSegment(x, y, ux, uy, strength, lanePhase);
+  }
+
   ctx.restore();
 }
 
@@ -134,7 +177,7 @@ function drawGreenSlopeArrows() {
   ctx.save();
   ctx.setTransform(camera.zoom, 0, 0, camera.zoom, camera.tx, camera.ty);
 
-  drawEllipse(course.green, "rgba(255,255,255,0.018)", "rgba(255,255,255,0.12)", 1);
+  drawEllipse(course.green, "rgba(255,255,255,0.014)", "rgba(255,255,255,0.1)", 1);
 
   // The grid walks the full green bounding box, so it scales to future green shapes.
   for (let y = course.green.y - course.green.ry + 10; y <= course.green.y + course.green.ry - 8; y += 16) {
@@ -151,13 +194,13 @@ function drawGreenSlopeArrows() {
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = "rgba(9, 22, 9, 0.64)";
-  roundRect(W - 128, 14, 114, 28, 14);
+  ctx.fillStyle = "rgba(9, 22, 9, 0.58)";
+  roundRect(W - 126, 14, 112, 28, 14);
   ctx.fill();
   ctx.fillStyle = "#eef8c8";
   ctx.font = "800 11px system-ui";
   ctx.textAlign = "center";
-  ctx.fillText("Green read", W - 71, 32);
+  ctx.fillText("Green read", W - 70, 32);
   ctx.restore();
 }
 
@@ -165,6 +208,7 @@ const baseUpdateBallForPuttingSlope = updateBall;
 updateBall = function updateBallWithPuttingSlope() {
   baseUpdateBallForPuttingSlope();
   applyGreenSlopeToPutt();
+  settleSlowGreenRoll();
 };
 
 const baseDrawForPuttingSlope = draw;
