@@ -75,8 +75,10 @@ Putting now has a first-pass slope system:
 - The renderer samples across the whole green shape instead of only around the cup.
 - The previous funnel-like effect has been reduced by lowering slope strength and avoiding zones that point directly into the hole.
 - The old chunky arrowheads have been replaced by subtler moving dash marks with a small leading dot.
+- The read marks now use a conveyor-style fade: they appear at the back, drift forward, fade out at the end, and reset only while invisible.
 - The putt is nudged gently downhill each frame while it rolls on the green.
 - Slow putts take more break than firm putts, but slopes should influence the line rather than drag the ball into the cup.
+- Very slow rolling putts now settle instead of being kept alive forever by tiny slope nudges.
 
 This is intentionally simpler than a full height map, but it gives the core putting challenge: choosing both line and pace.
 
@@ -145,7 +147,7 @@ This should make club choice much clearer. Driver and 3 Wood are strong from the
 | Fairway | Strong carry for irons/wedges; weak for driver/3W off the deck | normal | easy-medium, but long clubs are very hard | good roll | Ideal landing area |
 | Rough | Reduced carry | worse | hard | little roll | Punishes misses without stopping play |
 | Sand | Only wedges work well | much worse | very hard | plug/stop, almost no bounce | Forces recovery shots |
-| Green | Best for putting | accurate | low-medium plus slope read | high roll with gentle break | Putting surface |
+| Green | Best for putting | accurate | low-medium plus slope read | high roll with gentle break and low-speed settle | Putting surface |
 | Water/out of bounds | penalty | n/a | n/a | n/a | Adds risk/reward |
 
 ## Shot model for MVP
@@ -166,6 +168,7 @@ The prototype uses a simple 2D model:
 - The effective cup capture is smaller before the zoomed putting phase.
 - Putts roll immediately, then green slopes can bend the ball based on line and pace.
 - Fast putts get a much smaller effective cup capture than slow putts.
+- Slow putts that lose momentum settle instead of trickling indefinitely.
 - After landing, carried shots do a short bounce animation unless they land in sand.
 - After bouncing, surface and club type calculate a small amount of extra roll, except sand which should stop the ball.
 - If the ball lands or rolls into water, it returns to the previous safe lie with a penalty stroke.
