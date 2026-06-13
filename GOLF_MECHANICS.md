@@ -62,6 +62,15 @@ Carried shots now visually rise, land, bounce, then roll:
 
 This is visual only for now. It improves feel without changing the main carry matrix.
 
+## Bunker behaviour
+
+Sand is now treated as a plug/stop surface:
+
+- Landing in a bunker should produce almost no bounce.
+- The ball should not roll meaningfully once it reaches sand.
+- Rolling into a bunker should dead-stop the ball and switch the suggested club to Sand Wedge.
+- Escaping a bunker is still possible with wedges, but the bunker itself should not act like a slow fairway.
+
 ## Carry vs roll
 
 The dotted aim line now shows the expected **carry** point for normal clubs, not the final total distance. The ball may get extra roll after landing depending on the landing surface.
@@ -91,7 +100,7 @@ This should make club choice much clearer. For example, Driver is excellent from
 | Tee | Strong driver carry, but not green-reaching on a par 4 | normal | modest roll | Strong first shot |
 | Fairway | Strong carry | normal | good roll | Ideal landing area |
 | Rough | Reduced carry | worse | little roll | Punishes misses without stopping play |
-| Sand | Only wedges work well | much worse | almost no roll | Forces recovery shots |
+| Sand | Only wedges work well | much worse | plug/stop, almost no bounce | Forces recovery shots |
 | Green | Best for putting | accurate | high roll | Putting surface |
 | Water/out of bounds | penalty | n/a | n/a | Adds risk/reward |
 
@@ -104,8 +113,8 @@ The prototype uses a simple 2D model:
 - Club accuracy adds a small random angle error.
 - Normal clubs fly to the shown carry point.
 - During flight, the ball visually scales up and back down to suggest height.
-- After landing, carried shots do a short bounce animation.
-- After bouncing, surface and club type calculate a small amount of extra roll.
+- After landing, carried shots do a short bounce animation unless they land in sand.
+- After bouncing, surface and club type calculate a small amount of extra roll, except sand which should stop the ball.
 - Putter shots roll immediately rather than flying or bouncing.
 - If the ball lands or rolls into water, it returns to the previous safe lie with a penalty stroke.
 - If the ball is slow and within the cup radius, it holes out.
