@@ -1,0 +1,26 @@
+.status-grid {
+  display: none;
+}
+
+.app-shell {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+#course {
+  height: min(66dvh, 680px);
+}
+
+@media (max-width: 520px) {
+  #course {
+    height: min(64dvh, 640px);
+  }
+
+  .score-card {
+    min-width: 72px;
+    padding: 6px 8px;
+  }
+
+  .score-card strong {
+    font-size: 1.35rem;
+  }
+}
