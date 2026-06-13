@@ -24,6 +24,8 @@ const clubs = {
     accuracy: 10,
     type: "full",
     rollBias: 1.2,
+    flightHeight: 0.34,
+    bouncePower: 1,
     carry: { tee: 285, fairway: 225, rough: 70, sand: 0, green: 25 }
   },
   wood3: {
@@ -32,6 +34,8 @@ const clubs = {
     accuracy: 8,
     type: "full",
     rollBias: 1.05,
+    flightHeight: 0.42,
+    bouncePower: 0.9,
     carry: { tee: 245, fairway: 215, rough: 90, sand: 0, green: 22 }
   },
   iron5: {
@@ -40,6 +44,8 @@ const clubs = {
     accuracy: 6,
     type: "full",
     rollBias: 0.72,
+    flightHeight: 0.58,
+    bouncePower: 0.72,
     carry: { tee: 185, fairway: 175, rough: 125, sand: 35, green: 18 }
   },
   iron7: {
@@ -48,6 +54,8 @@ const clubs = {
     accuracy: 4.8,
     type: "full",
     rollBias: 0.52,
+    flightHeight: 0.72,
+    bouncePower: 0.6,
     carry: { tee: 155, fairway: 145, rough: 110, sand: 45, green: 16 }
   },
   wedgeP: {
@@ -56,6 +64,8 @@ const clubs = {
     accuracy: 3.7,
     type: "full",
     rollBias: 0.3,
+    flightHeight: 1.08,
+    bouncePower: 0.42,
     carry: { tee: 108, fairway: 102, rough: 82, sand: 55, green: 12 }
   },
   wedgeS: {
@@ -64,6 +74,8 @@ const clubs = {
     accuracy: 4.2,
     type: "full",
     rollBias: 0.18,
+    flightHeight: 1.22,
+    bouncePower: 0.28,
     carry: { tee: 84, fairway: 78, rough: 62, sand: 70, green: 10 }
   },
   putter: {
@@ -72,17 +84,19 @@ const clubs = {
     accuracy: 1.2,
     type: "putt",
     rollBias: 1,
+    flightHeight: 0,
+    bouncePower: 0,
     carry: { tee: 24, fairway: 22, rough: 8, sand: 0, green: 45 }
   }
 };
 
 const surfaces = {
-  tee: { label: "Tee", accuracy: 1, friction: 0.982, roll: 0.13 },
-  fairway: { label: "Fairway", accuracy: 1, friction: 0.982, roll: 0.16 },
-  rough: { label: "Rough", accuracy: 1.65, friction: 0.955, roll: 0.055 },
-  sand: { label: "Sand", accuracy: 2.15, friction: 0.92, roll: 0.012 },
-  green: { label: "Green", accuracy: 0.78, friction: 0.988, roll: 0.24 },
-  water: { label: "Water", accuracy: 10, friction: 0.85, roll: 0 }
+  tee: { label: "Tee", accuracy: 1, friction: 0.982, roll: 0.13, bounce: 0.75 },
+  fairway: { label: "Fairway", accuracy: 1, friction: 0.982, roll: 0.16, bounce: 0.85 },
+  rough: { label: "Rough", accuracy: 1.65, friction: 0.955, roll: 0.055, bounce: 0.4 },
+  sand: { label: "Sand", accuracy: 2.15, friction: 0.92, roll: 0.012, bounce: 0.12 },
+  green: { label: "Green", accuracy: 0.78, friction: 0.988, roll: 0.24, bounce: 0.45 },
+  water: { label: "Water", accuracy: 10, friction: 0.85, roll: 0, bounce: 0 }
 };
 
 const course = {
@@ -122,9 +136,11 @@ const ball = {
   vx: 0,
   vy: 0,
   r: 6,
+  visualScale: 1,
   moving: false,
   holed: false,
-  flight: null
+  flight: null,
+  bounce: null
 };
 
 let selectedClub = "driver";
@@ -330,13 +346,30 @@ function drawCup() {
 function drawBall() {
   if (ball.holed) return;
 
+  const scale = ball.visualScale || 1;
+  const radius = ball.r * scale;
+  const shadowScale = clamp(1 / scale, 0.48, 1);
+
+  ctx.save();
+  ctx.globalAlpha = 0.32;
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.ellipse(ball.x + 2, ball.y + 7 + (scale - 1) * 8, ball.r * 1.25 * shadowScale, ball.r * 0.52 * shadowScale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 3;
+  ctx.shadowBlur = 8 + (scale - 1) * 12;
+  ctx.shadowOffsetY = 2;
   ctx.fillStyle = "#ffffff";
   ctx.beginPath();
-  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.arc(ball.x, ball.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(190, 210, 255, 0.38)";
+  ctx.beginPath();
+  ctx.arc(ball.x - radius * 0.25, ball.y - radius * 0.25, Math.max(1.4, radius * 0.28), 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -514,6 +547,8 @@ function hitShot(pointer) {
   const landingY = ball.y + Math.sin(angle) * carryPixels;
 
   ball.moving = true;
+  ball.visualScale = 1;
+  ball.bounce = null;
   ball.flight = {
     startX: ball.x,
     startY: ball.y,
@@ -523,7 +558,8 @@ function hitShot(pointer) {
     duration: clamp(18 + carryPixels / 8, 20, 58),
     angle,
     carryYards,
-    clubKey: selectedClub
+    clubKey: selectedClub,
+    height: club.flightHeight
   };
 
   message = `${club.name} from ${surface.label}. Carry target: ${Math.round(carryYards)} yd.`;
@@ -537,8 +573,81 @@ function launchRoll(angle, rollYards, surfaceKey) {
 
   ball.vx = Math.cos(angle) * initialSpeed;
   ball.vy = Math.sin(angle) * initialSpeed;
+  ball.visualScale = 1;
   ball.moving = true;
   ball.flight = null;
+  ball.bounce = null;
+}
+
+function startLandingBounce(shot, landingSurfaceKey, rollYards) {
+  const landingSurface = surfaces[landingSurfaceKey];
+  const club = clubs[shot.clubKey];
+  const bounceStrength = club.bouncePower * landingSurface.bounce;
+
+  if (bounceStrength <= 0.04) {
+    return false;
+  }
+
+  ball.bounce = {
+    startX: ball.x,
+    startY: ball.y,
+    angle: shot.angle,
+    rollYards,
+    surfaceKey: landingSurfaceKey,
+    progress: 0,
+    duration: clamp(14 + bounceStrength * 16, 12, 28),
+    visualAmp: clamp(0.08 + club.flightHeight * 0.12, 0.08, 0.24) * landingSurface.bounce,
+    forwardPixels: clamp(6 + shot.carryYards * 0.025 * bounceStrength, 4, 18)
+  };
+  return true;
+}
+
+function updateBounce() {
+  if (!ball.bounce) return false;
+
+  const bounce = ball.bounce;
+  bounce.progress += 1;
+  const t = clamp(bounce.progress / bounce.duration, 0, 1);
+  const forward = bounce.forwardPixels * t;
+  const bounceWave = Math.abs(Math.sin(t * Math.PI * 3)) * (1 - t);
+
+  ball.x = bounce.startX + Math.cos(bounce.angle) * forward;
+  ball.y = bounce.startY + Math.sin(bounce.angle) * forward;
+  ball.visualScale = 1 + bounce.visualAmp * bounceWave;
+
+  if (surfaceAt(ball.x, ball.y) === "water") {
+    ball.bounce = null;
+    takePenalty("Water hazard. One-stroke penalty and ball returned to previous lie.");
+    return true;
+  }
+
+  if (t < 1) return true;
+
+  const finalSurfaceKey = surfaceAt(ball.x, ball.y);
+  if (finalSurfaceKey === "water") {
+    ball.bounce = null;
+    takePenalty("Water hazard. One-stroke penalty and ball returned to previous lie.");
+    return true;
+  }
+
+  ball.visualScale = 1;
+  ball.bounce = null;
+
+  if (bounce.rollYards < 1) {
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.moving = false;
+    lastSafe = { x: ball.x, y: ball.y };
+    updateSuggestedClub(finalSurfaceKey);
+    message = `Landed on ${surfaces[finalSurfaceKey].label}. Almost no extra roll.`;
+    updateHud();
+    return true;
+  }
+
+  launchRoll(bounce.angle, bounce.rollYards, finalSurfaceKey);
+  message = `Bounced on ${surfaces[finalSurfaceKey].label}. Extra roll: ${Math.round(bounce.rollYards)} yd.`;
+  updateHud();
+  return true;
 }
 
 function updateFlight() {
@@ -548,12 +657,16 @@ function updateFlight() {
   shot.progress += 1;
   const t = clamp(shot.progress / shot.duration, 0, 1);
   const ease = 1 - Math.pow(1 - t, 2);
+  const arc = Math.sin(t * Math.PI);
+
   ball.x = shot.startX + (shot.landingX - shot.startX) * ease;
   ball.y = shot.startY + (shot.landingY - shot.startY) * ease;
+  ball.visualScale = 1 + arc * shot.height;
 
   if (t < 1) return true;
 
   ball.flight = null;
+  ball.visualScale = 1;
 
   const landingSurfaceKey = surfaceAt(ball.x, ball.y);
   if (landingSurfaceKey === "water") {
@@ -565,6 +678,12 @@ function updateFlight() {
   const club = clubs[shot.clubKey];
   const bounceLuck = 0.75 + Math.random() * 0.45;
   const rollYards = shot.carryYards * landingSurface.roll * club.rollBias * bounceLuck;
+
+  if (startLandingBounce(shot, landingSurfaceKey, rollYards)) {
+    message = `Landed on ${landingSurface.label}.`;
+    updateHud();
+    return true;
+  }
 
   if (rollYards < 1) {
     ball.vx = 0;
@@ -587,7 +706,9 @@ function updateBall() {
   if (!ball.moving || ball.holed) return;
 
   if (updateFlight()) return;
+  if (updateBounce()) return;
 
+  ball.visualScale = 1;
   ball.x += ball.vx;
   ball.y += ball.vy;
 
@@ -610,6 +731,7 @@ function updateBall() {
     ball.moving = false;
     ball.vx = 0;
     ball.vy = 0;
+    ball.visualScale = 1;
     message = `Holed out in ${strokes}.`;
     updateHud();
     return;
@@ -618,6 +740,7 @@ function updateBall() {
   if (speed < 0.045) {
     ball.vx = 0;
     ball.vy = 0;
+    ball.visualScale = 1;
     ball.moving = false;
     lastSafe = { x: ball.x, y: ball.y };
     updateSuggestedClub(surfaceKey);
@@ -632,8 +755,10 @@ function takePenalty(text) {
   ball.y = previousSafe.y;
   ball.vx = 0;
   ball.vy = 0;
+  ball.visualScale = 1;
   ball.moving = false;
   ball.flight = null;
+  ball.bounce = null;
   message = text;
   updateHud();
 }
@@ -643,7 +768,7 @@ function nextLieMessage(surfaceKey) {
   if (surfaceKey === "sand") return "In the bunker. Sand wedge is usually safest; Driver and 3W have no carry here.";
   if (surfaceKey === "rough") return "In the rough. Longer clubs lose a lot of carry and accuracy here.";
   if (surfaceKey === "fairway") return "Fairway lie. Full clubs carry much better from here.";
-  if (surfaceKey === "tee") return "Tee shot. Driver should leave an approach on this par 4.";
+  if (surfaceKey === "tee") return "Tee shot. Driver should now leave an approach on this par 4.";
   return "Ready for the next shot.";
 }
 
@@ -708,9 +833,11 @@ function resetBallToSafe() {
   ball.y = lastSafe.y;
   ball.vx = 0;
   ball.vy = 0;
+  ball.visualScale = 1;
   ball.moving = false;
   ball.holed = false;
   ball.flight = null;
+  ball.bounce = null;
   message = "Ball reset to last safe resting spot.";
   updateHud();
 }
@@ -720,14 +847,16 @@ function restartHole() {
   ball.y = 579;
   ball.vx = 0;
   ball.vy = 0;
+  ball.visualScale = 1;
   ball.moving = false;
   ball.holed = false;
   ball.flight = null;
+  ball.bounce = null;
   strokes = 0;
   selectedClub = "driver";
   previousSafe = { x: ball.x, y: ball.y };
   lastSafe = { x: ball.x, y: ball.y };
-  message = "Par 4 balance pass: driver should now leave an approach, not reach the green.";
+  message = "Flight pass: carried shots now rise, land, bounce, then roll. Putts stay flat.";
   clubButtons.forEach((button) => {
     button.classList.toggle("selected", button.dataset.club === selectedClub);
   });
