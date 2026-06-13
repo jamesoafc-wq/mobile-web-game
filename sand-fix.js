@@ -7,15 +7,21 @@ surfaces.sand.bounce = 0.01;
 
 let lastRollingPositionForSand = { x: ball.x, y: ball.y };
 
-function findSandCrossingPoint(from, to) {
-  const steps = Math.max(8, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 2));
+function pointIsInsideAnyBunker(x, y) {
+  return course.bunkers.some((bunker) => pointInEllipse({ x, y }, bunker));
+}
 
-  for (let i = 1; i <= steps; i += 1) {
+function findSandCrossingPoint(from, to) {
+  const steps = Math.max(12, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 1.25));
+
+  for (let i = 0; i <= steps; i += 1) {
     const t = i / steps;
     const x = from.x + (to.x - from.x) * t;
     const y = from.y + (to.y - from.y) * t;
 
-    if (surfaceAt(x, y) === "sand") {
+    // Do not rely on surfaceAt() here: green is checked before bunkers there,
+    // so bunker edges near the zoomed green can be classified as green.
+    if (pointIsInsideAnyBunker(x, y)) {
       return { x, y };
     }
   }
