@@ -25,6 +25,18 @@ Use a pull-back control:
 
 The tee and starting ball position have been moved higher up the screen, and max pull distance has been shortened so a full-power tee shot should not require dragging into the bottom club menu.
 
+## Readability while dragging
+
+Yardage feedback is now shown in a fixed HUD at the bottom of the canvas instead of being attached to the thumb/drag point. This should make carry/roll distance readable while aiming on mobile.
+
+## Par 4 scale balance
+
+The prototype now uses a larger yardage scale: `0.92 yards per pixel`. That makes the first hole play closer to a real par 4. The tee-to-pin distance is roughly 450+ yards, so the driver should leave an approach shot instead of reaching the green from the tee.
+
+## Putting zoom
+
+When the ball is on the green and the putter is selected, the canvas camera zooms in on the green. The underlying course coordinates do not change; only the view changes. This is intended to make short putts easier to judge on mobile.
+
 ## Carry vs roll
 
 The dotted aim line now shows the expected **carry** point for normal clubs, not the final total distance. The ball may get extra roll after landing depending on the landing surface.
@@ -37,13 +49,13 @@ Approximate max carry/roll by club and surface:
 
 | Club | Tee | Fairway | Rough | Sand | Green |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Driver | 300 yd | 235 yd | 75 yd | 0 yd | 35 yd |
-| 3 Wood | 255 yd | 225 yd | 95 yd | 0 yd | 30 yd |
-| 5 Iron | 190 yd | 180 yd | 130 yd | 35 yd | 22 yd |
-| 7 Iron | 160 yd | 150 yd | 115 yd | 45 yd | 18 yd |
-| Pitching Wedge | 110 yd | 105 yd | 85 yd | 55 yd | 14 yd |
-| Sand Wedge | 85 yd | 80 yd | 65 yd | 70 yd | 12 yd |
-| Putter | 30 yd | 25 yd | 10 yd | 0 yd | 55 yd |
+| Driver | 285 yd | 225 yd | 70 yd | 0 yd | 25 yd |
+| 3 Wood | 245 yd | 215 yd | 90 yd | 0 yd | 22 yd |
+| 5 Iron | 185 yd | 175 yd | 125 yd | 35 yd | 18 yd |
+| 7 Iron | 155 yd | 145 yd | 110 yd | 45 yd | 16 yd |
+| Pitching Wedge | 108 yd | 102 yd | 82 yd | 55 yd | 12 yd |
+| Sand Wedge | 84 yd | 78 yd | 62 yd | 70 yd | 10 yd |
+| Putter | 24 yd | 22 yd | 8 yd | 0 yd | 45 yd |
 
 This should make club choice much clearer. For example, Driver is excellent from the tee, weaker from rough, and unusable from sand.
 
@@ -51,7 +63,7 @@ This should make club choice much clearer. For example, Driver is excellent from
 
 | Surface | Carry behaviour | Accuracy | Roll/friction | Gameplay purpose |
 | --- | --- | --- | --- | --- |
-| Tee | Full club potential | normal | modest roll | Strong first shot |
+| Tee | Strong driver carry, but not green-reaching on a par 4 | normal | modest roll | Strong first shot |
 | Fairway | Strong carry | normal | good roll | Ideal landing area |
 | Rough | Reduced carry | worse | little roll | Punishes misses without stopping play |
 | Sand | Only wedges work well | much worse | almost no roll | Forces recovery shots |
