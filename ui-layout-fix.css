@@ -1,26 +1,81 @@
-.status-grid {
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  padding: 6px;
+}
+
+.top-panel,
+.status-grid,
+.hint {
   display: none;
 }
 
 .app-shell {
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  width: min(100%, 560px);
+  height: calc(100dvh - 12px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 6px;
 }
 
 #course {
-  height: min(66dvh, 680px);
+  height: 100%;
+  max-height: none;
+  align-self: stretch;
+}
+
+.actions {
+  padding: 6px;
+  gap: 6px;
+}
+
+.actions button {
+  padding: 7px 8px;
+  font-size: 0.78rem;
+}
+
+.club-panel {
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  padding: 7px;
+}
+
+.club-panel button {
+  padding: 8px 3px;
+  font-size: 0.74rem;
 }
 
 @media (max-width: 520px) {
-  #course {
-    height: min(64dvh, 640px);
+  body {
+    padding: 4px;
   }
 
-  .score-card {
-    min-width: 72px;
-    padding: 6px 8px;
+  .app-shell {
+    width: 100%;
+    height: calc(100dvh - 8px);
+    gap: 5px;
   }
 
-  .score-card strong {
-    font-size: 1.35rem;
+  .actions {
+    padding: 5px;
+  }
+
+  .actions button {
+    padding: 6px 6px;
+    font-size: 0.74rem;
+  }
+
+  .club-panel {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .club-panel button {
+    padding: 7px 2px;
+    font-size: 0.7rem;
   }
 }
