@@ -2,25 +2,48 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>One-Tap Drift</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Top-Down Golf Mechanics Sandbox</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="game-shell">
-    <header>
-      <h1>One-Tap Drift</h1>
-      <p>Hold to drift. Release to straighten. Avoid the barriers.</p>
-    </header>
-
-    <section class="hud" aria-label="Game stats">
-      <div>Score: <strong id="score">0</strong></div>
-      <div>Best: <strong id="best">0</strong></div>
+  <main class="app-shell">
+    <section class="top-panel" aria-label="Hole information">
+      <div>
+        <p class="eyebrow">Hole 1 · Par 4</p>
+        <h1>Top-Down Golf</h1>
+      </div>
+      <div class="score-card">
+        <span>Strokes</span>
+        <strong id="strokes">0</strong>
+      </div>
     </section>
 
-    <canvas id="game" width="360" height="640" aria-label="One-Tap Drift game canvas"></canvas>
+    <section class="status-grid" aria-label="Shot status">
+      <div><span>Lie</span><strong id="lie">Tee</strong></div>
+      <div><span>Club</span><strong id="club">Driver</strong></div>
+      <div><span>Pin</span><strong id="distance">0 yd</strong></div>
+      <div><span>Power</span><strong id="power">0%</strong></div>
+    </section>
 
-    <button id="startButton">Start game</button>
+    <canvas id="course" width="480" height="720" aria-label="Playable top-down golf course"></canvas>
+
+    <section class="club-panel" aria-label="Golf bag club selection">
+      <button data-club="driver" class="selected">Driver</button>
+      <button data-club="wood3">3W</button>
+      <button data-club="iron5">5I</button>
+      <button data-club="iron7">7I</button>
+      <button data-club="wedgeP">PW</button>
+      <button data-club="wedgeS">SW</button>
+      <button data-club="putter">Putter</button>
+    </section>
+
+    <section class="actions">
+      <button id="resetShot" type="button">Reset ball</button>
+      <button id="newHole" type="button">Restart hole</button>
+    </section>
+
+    <p class="hint" id="hint">Pull back from the ball, aim, then release. Driver is strongest from the tee; putter is best on the green.</p>
   </main>
 
   <script src="game.js"></script>
