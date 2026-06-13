@@ -1,5 +1,5 @@
-// Minimal putting and UI hotfix layer.
-// Keep this small: wrap the original game functions instead of replacing full shot logic.
+// Active gameplay/UI tuning layer.
+// Keeps the base game intact, but replaces the parts currently being tuned.
 
 function isPuttingLieNow() {
   const lie = getLie();
@@ -43,7 +43,7 @@ function forceStopDeadPutt() {
   if (!isPuttingLieNow()) return;
 
   const speed = Math.hypot(ball.vx, ball.vy);
-  if (speed < 0.012) {
+  if (speed < 0.006) {
     ball.vx = 0;
     ball.vy = 0;
     ball.moving = false;
@@ -53,6 +53,82 @@ function forceStopDeadPutt() {
     updateHud();
   }
 }
+
+function getScorePhrase(scoreToPar) {
+  if (scoreToPar <= -3) return 'For Albatross';
+  if (scoreToPar === -2) return 'For Eagle';
+  if (scoreToPar === -1) return 'For Birdie';
+  if (scoreToPar === 0) return 'For Par';
+  if (scoreToPar === 1) return 'For Bogey';
+  if (scoreToPar === 2) return 'For Double Bogey';
+  if (scoreToPar === 3) return 'For Triple Bogey';
+  return `For +${scoreToPar}`;
+}
+
+function getCurrentScorePhrase(scoreToPar) {
+  if (scoreToPar <= -3) return 'Albatross';
+  if (scoreToPar === -2) return 'Eagle';
+  if (scoreToPar === -1) return 'Birdie';
+  if (scoreToPar === 0) return 'Par';
+  if (scoreToPar === 1) return 'Bogey';
+  if (scoreToPar === 2) return 'Double Bogey';
+  if (scoreToPar === 3) return 'Triple Bogey';
+  return `+${scoreToPar}`;
+}
+
+function getTopRightScoreText() {
+  if (ball && ball.holed) return getCurrentScorePhrase(strokes - hole.par);
+  return getScorePhrase((strokes + 1) - hole.par);
+}
+
+startLandingRoll = function startLandingRollWithApproachRelease(angle, lie, carryYards, clubKey) {
+  const club = clubs[clubKey];
+
+  if (lie === 'water') {
+    applyPenalty('Water hazard. One-stroke penalty.');
+    return;
+  }
+
+  if (lie === 'sand') {
+    ball.moving = false;
+    ball.vx = 0;
+    ball.vy = 0;
+    message = 'Plugged in the bunker. Almost no bounce or roll.';
+    updateHud();
+    return;
+  }
+
+  const approachRollFactor = ({
+    tee: 0.16,
+    fairway: 0.18,
+    rough: 0.065,
+    fringe: 0.16,
+    green: 0.24
+  }[lie] ?? 0.11);
+
+  const clubRelease = club.rollBias || 0.5;
+  const randomness = 0.88 + Math.random() * 0.24;
+  const rollYards = carryYards * clubRelease * approachRollFactor * randomness;
+  const rollPixels = rollYards / YARDS_PER_PIXEL;
+  const surfaceFriction = rollFriction[lie] ?? 0.98;
+
+  // Convert desired release into velocity. Green/fringe approaches should release after first land,
+  // not stop dead, while rough and sand still kill speed quickly.
+  const releaseBoost = lie === 'green' ? 1.28 : lie === 'fringe' ? 1.18 : 1.08;
+  const speed = rollPixels * (1 - surfaceFriction) * releaseBoost;
+
+  ball.vx = Math.cos(angle) * speed;
+  ball.vy = Math.sin(angle) * speed;
+  ball.moving = speed > 0.012;
+
+  if (!ball.moving) {
+    lastSafe = { x: ball.x, y: ball.y };
+    selectPutterOnSettledGreen();
+  } else if (lie === 'green' || lie === 'fringe') {
+    message = 'Landed on the green and released.';
+    updateHud();
+  }
+};
 
 const originalResolveSkillShotHotfix = resolveSkillShot;
 resolveSkillShot = function resolveSkillShotWithScaledPutterHotfix() {
@@ -66,18 +142,18 @@ resolveSkillShot = function resolveSkillShotWithScaledPutterHotfix() {
 
   originalResolveSkillShotHotfix();
 
-  // The visual build's original putter speed used a fixed multiplier that made short putts too hot.
-  // Let the normal strike result happen, then rescale only putter velocity to a responsive roll distance.
+  // Let the normal strike result happen, then rescale only putter velocity.
   if (!shotBefore || shotBefore.clubKey !== 'putter' || !ball || ball.holed) return;
 
   const currentSpeed = Math.hypot(ball.vx, ball.vy);
   const angle = currentSpeed > 0 ? Math.atan2(ball.vy, ball.vx) : shotBefore.baseAngle;
-  const responsivePower = Math.pow(clamp(shotBefore.power, 0, 1), 0.82);
-  const rollPixels = (shotBefore.maxCarry * responsivePower) / YARDS_PER_PIXEL;
+  const responsivePower = Math.pow(clamp(shotBefore.power, 0, 1), 0.7);
+  const effectivePuttYards = shotBefore.lie === 'green' ? 98 : shotBefore.lie === 'fringe' ? 82 : shotBefore.maxCarry;
+  const rollPixels = (effectivePuttYards * responsivePower) / YARDS_PER_PIXEL;
   const friction = rollFriction[shotBefore.lie] ?? rollFriction.green;
-  const correctedSpeed = rollPixels * (1 - friction) * 0.88;
+  const correctedSpeed = rollPixels * (1 - friction) * 1.22;
 
-  if (correctedSpeed <= 0.008) {
+  if (correctedSpeed <= 0.006) {
     ball.vx = 0;
     ball.vy = 0;
     ball.moving = false;
@@ -100,27 +176,21 @@ updateRoll = function updateRollWithPuttingSettleHotfix() {
   selectPutterOnSettledGreen();
 };
 
-const originalStartLandingRollHotfix = startLandingRoll;
-startLandingRoll = function startLandingRollWithAutoPutterHotfix(angle, lie, carryYards, clubKey) {
-  originalStartLandingRollHotfix(angle, lie, carryYards, clubKey);
-  selectPutterOnSettledGreen();
-};
-
 function getSkillPanelRect() {
   const panelW = Math.min(350, canvas.width - 24);
-  const panelH = 88;
+  const panelH = 94;
   const panelX = (canvas.width - panelW) / 2;
-  const panelY = Math.max(84, canvas.height - 190);
+  const panelY = Math.max(84, canvas.height - 198);
   return { x: panelX, y: panelY, w: panelW, h: panelH };
 }
 
 function getStrikeCancelButton() {
   const panel = getSkillPanelRect();
   return {
-    x: panel.x + panel.w - 112,
-    y: panel.y + 52,
-    w: 96,
-    h: 26
+    x: panel.x + 16,
+    y: panel.y + 62,
+    w: 84,
+    h: 24
   };
 }
 
@@ -129,16 +199,16 @@ function drawStrikeCancelButton() {
   const button = getStrikeCancelButton();
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = 'rgba(96, 32, 24, 0.92)';
-  roundRect(ctx, button.x, button.y, button.w, button.h, 13);
+  ctx.fillStyle = 'rgba(28, 38, 31, 0.94)';
+  roundRect(ctx, button.x, button.y, button.w, button.h, 12);
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.18)';
   ctx.stroke();
-  ctx.fillStyle = '#ffe8df';
-  ctx.font = '900 10px system-ui';
+  ctx.fillStyle = '#f6e6d8';
+  ctx.font = '800 9.5px system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Cancel shot', button.x + button.w / 2, button.y + button.h / 2 + 0.5);
+  ctx.fillText('Cancel', button.x + button.w / 2, button.y + button.h / 2 + 0.5);
   ctx.restore();
 }
 
@@ -186,7 +256,7 @@ drawSkillBar = function drawSkillBarAboveClubOverlay() {
 
   ctx.fillStyle = '#d7eac8';
   ctx.font = '700 10px system-ui';
-  ctx.fillText('green = sweet · yellow = safe · red = bad', canvas.width / 2 - 34, panel.y + 72);
+  ctx.fillText('green = sweet · yellow = safe · red = bad', canvas.width / 2 + 34, panel.y + 77);
   ctx.restore();
 
   drawStrikeCancelButton();
@@ -287,7 +357,7 @@ drawOverlayInfo = function drawInCanvasHudHotfix() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   ctx.fillStyle = 'rgba(8, 18, 9, 0.78)';
-  roundRect(ctx, 8, 8, canvas.width - 16, 44, 16);
+  roundRect(ctx, 8, 8, canvas.width - 16, 54, 16);
   ctx.fill();
 
   ctx.fillStyle = '#eef8c8';
@@ -296,24 +366,26 @@ drawOverlayInfo = function drawInCanvasHudHotfix() {
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(`${hole.name} · Par ${hole.par}`, 22, 23);
   ctx.font = '800 10px system-ui';
-  ctx.fillText(`${surfaceLabels[getLie()]} · ${clubs[selectedClub].short}`, 22, 40);
+  ctx.fillText(`${surfaceLabels[getLie()]} · ${clubs[selectedClub].short}`, 22, 42);
 
   ctx.textAlign = 'center';
   ctx.font = '900 12px system-ui';
-  ctx.fillText(`${getDistanceToCupYards()} yd`, canvas.width / 2, 31);
+  ctx.fillText(`${getDistanceToCupYards()} yd`, canvas.width / 2, 32);
 
   ctx.textAlign = 'right';
   ctx.font = '900 11px system-ui';
-  ctx.fillText(`Strokes ${strokes}`, canvas.width - 22, 31);
+  ctx.fillText(`Strokes ${strokes}`, canvas.width - 22, 24);
+  ctx.font = '800 9.5px system-ui';
+  ctx.fillText(getTopRightScoreText(), canvas.width - 22, 43);
 
   if (isPuttingView()) {
     ctx.fillStyle = 'rgba(238,248,200,0.16)';
-    roundRect(ctx, canvas.width - 118, 56, 104, 24, 12);
+    roundRect(ctx, canvas.width - 118, 66, 104, 24, 12);
     ctx.fill();
     ctx.fillStyle = '#eef8c8';
     ctx.textAlign = 'center';
     ctx.font = '800 10px system-ui';
-    ctx.fillText('Putting zoom', canvas.width - 66, 72);
+    ctx.fillText('Putting zoom', canvas.width - 66, 82);
   }
 
   ctx.restore();
