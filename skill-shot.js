@@ -21,6 +21,7 @@ const skillSurfaceDifficulty = {
 };
 
 let skillShot = null;
+let skillFeedback = null;
 
 function getSkillDifficulty(clubKey, surfaceKey, power) {
   const clubDifficulty = skillClubDifficulty[clubKey] ?? 0.5;
@@ -44,32 +45,55 @@ function getSkillMarkerPosition() {
 function getSkillResult(marker) {
   const center = skillShot.center;
   const halfSweet = skillShot.sweetWidth / 2;
+  const middleWidth = clamp(skillShot.sweetWidth + 0.28 - skillShot.difficulty * 0.06, skillShot.sweetWidth + 0.14, 0.48);
+  const halfMiddle = middleWidth / 2;
   const error = marker - center;
   const absError = Math.abs(error);
+  const side = Math.sign(error) || 1;
+  const difficulty = skillShot.difficulty;
 
   if (absError <= halfSweet) {
     return {
       name: "Perfect strike",
+      zone: "sweet",
+      zoneLabel: "Sweet spot",
       carryMultiplier: 1,
       accuracyMultiplier: 0.32,
       timingDegrees: 0,
+      curvePixels: 0,
       miss: 0
     };
   }
 
   const miss = clamp((absError - halfSweet) / (0.5 - halfSweet), 0, 1);
-  const side = Math.sign(error) || 1;
-  const difficulty = skillShot.difficulty;
+  const middleMiss = clamp((absError - halfSweet) / Math.max(0.01, halfMiddle - halfSweet), 0, 1);
 
-  let name = "Good contact";
-  if (miss > 0.35) name = "Poor contact";
-  if (miss > 0.68) name = side < 0 ? "Hooked it" : "Sliced it";
+  if (absError <= halfMiddle) {
+    return {
+      name: "Good contact",
+      zone: "middle",
+      zoneLabel: "Middle contact",
+      carryMultiplier: clamp(0.98 - middleMiss * 0.08, 0.9, 0.98),
+      accuracyMultiplier: clamp(0.85 + middleMiss * 0.8 + difficulty * 0.25, 0.85, 1.7),
+      timingDegrees: side * (1 + middleMiss * 3 + difficulty * 1.5),
+      curvePixels: side * middleMiss * difficulty * 7,
+      miss
+    };
+  }
+
+  const badMiss = clamp((absError - halfMiddle) / Math.max(0.01, 0.5 - halfMiddle), 0, 1);
+  const severe = badMiss > 0.55;
+  const name = severe ? (side < 0 ? "Hooked it" : "Sliced it") : "Poor contact";
+  const curve = side * (12 + badMiss * 46 + difficulty * 24);
 
   return {
     name,
-    carryMultiplier: clamp(1 - miss * (0.18 + difficulty * 0.22), 0.58, 0.98),
-    accuracyMultiplier: clamp(0.8 + miss * 2.2 + difficulty * 0.7, 0.8, 3.2),
-    timingDegrees: side * (1.5 + miss * 12 + difficulty * 6),
+    zone: "bad",
+    zoneLabel: severe ? "Bad miss" : "Poor contact",
+    carryMultiplier: clamp(1 - miss * (0.18 + difficulty * 0.22), 0.58, 0.88),
+    accuracyMultiplier: clamp(1.4 + miss * 2.2 + difficulty * 0.9, 1.2, 3.5),
+    timingDegrees: side * (2.5 + badMiss * 7 + difficulty * 4),
+    curvePixels: curve,
     miss
   };
 }
@@ -141,6 +165,13 @@ function resolveSkillShot(marker) {
   const shotYards = shot.maxCarryYards * shot.power * result.carryMultiplier;
 
   skillShot = null;
+  skillFeedback = {
+    name: result.name,
+    zone: result.zone,
+    zoneLabel: result.zoneLabel,
+    curvePixels: result.curvePixels,
+    startedAt: performance.now()
+  };
   strokes += 1;
 
   if (club.type === "putt") {
@@ -167,10 +198,12 @@ function resolveSkillShot(marker) {
     angle,
     carryYards: shotYards,
     clubKey: shot.clubKey,
-    height: club.flightHeight
+    height: club.flightHeight,
+    curvePixels: result.curvePixels
   };
 
-  message = `${result.name}. Carry: ${Math.round(shotYards)} yd.`;
+  const curveNote = Math.abs(result.curvePixels) >= 18 ? " Curving hard." : "";
+  message = `${result.name}. Carry: ${Math.round(shotYards)} yd.${curveNote}`;
   updateHud();
 }
 
@@ -179,15 +212,18 @@ function drawSkillBar() {
 
   const marker = getSkillMarkerPosition();
   const panelW = 390;
-  const panelH = 82;
+  const panelH = 92;
   const panelX = (W - panelW) / 2;
-  const panelY = H - 116;
+  const panelY = H - 126;
   const barX = panelX + 28;
-  const barY = panelY + 43;
+  const barY = panelY + 46;
   const barW = panelW - 56;
   const barH = 18;
   const sweetX = barX + (skillShot.center - skillShot.sweetWidth / 2) * barW;
   const sweetW = skillShot.sweetWidth * barW;
+  const middleWidth = clamp(skillShot.sweetWidth + 0.28 - skillShot.difficulty * 0.06, skillShot.sweetWidth + 0.14, 0.48);
+  const middleX = barX + (skillShot.center - middleWidth / 2) * barW;
+  const middleW = middleWidth * barW;
   const markerX = barX + marker * barW;
   const club = clubs[skillShot.clubKey];
   const surface = surfaces[skillShot.surfaceKey];
@@ -206,12 +242,12 @@ function drawSkillBar() {
   ctx.font = "800 15px system-ui";
   ctx.fillText(`${club.short} from ${surface.label} · tap green`, W / 2, panelY + 24);
 
-  ctx.fillStyle = "rgba(255,255,255,0.16)";
+  ctx.fillStyle = "rgba(255, 92, 92, 0.64)";
   roundRect(barX, barY, barW, barH, 10);
   ctx.fill();
 
-  ctx.fillStyle = "rgba(255, 209, 92, 0.75)";
-  roundRect(barX + barW * 0.28, barY, barW * 0.44, barH, 10);
+  ctx.fillStyle = "rgba(255, 209, 92, 0.86)";
+  roundRect(middleX, barY, middleW, barH, 10);
   ctx.fill();
 
   ctx.fillStyle = "#70e269";
@@ -227,10 +263,106 @@ function drawSkillBar() {
 
   ctx.fillStyle = "#cfe8c8";
   ctx.font = "700 11px system-ui";
-  ctx.fillText(`Sweet spot: ${Math.round(skillShot.sweetWidth * 100)}%`, W / 2, panelY + 73);
+  ctx.fillText(`green = sweet · yellow = safe · red = bad`, W / 2, panelY + 76);
 
   ctx.restore();
 }
+
+function drawSkillFeedback() {
+  if (!skillFeedback) return;
+
+  const elapsed = performance.now() - skillFeedback.startedAt;
+  if (elapsed > 1700) {
+    skillFeedback = null;
+    return;
+  }
+
+  const panelW = 238;
+  const panelX = (W - panelW) / 2;
+  const panelY = 58;
+  const alpha = elapsed < 1250 ? 1 : 1 - (elapsed - 1250) / 450;
+  const fill = skillFeedback.zone === "sweet"
+    ? "rgba(43, 161, 69, 0.92)"
+    : skillFeedback.zone === "middle"
+      ? "rgba(177, 130, 32, 0.92)"
+      : "rgba(165, 54, 54, 0.94)";
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = clamp(alpha, 0, 1);
+  ctx.fillStyle = fill;
+  roundRect(panelX, panelY, panelW, 48, 18);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.stroke();
+
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.font = "900 16px system-ui";
+  ctx.fillText(skillFeedback.name, W / 2, panelY + 21);
+  ctx.font = "700 11px system-ui";
+  const curveText = Math.abs(skillFeedback.curvePixels) >= 18 ? " · visible curve" : "";
+  ctx.fillText(`${skillFeedback.zoneLabel}${curveText}`, W / 2, panelY + 38);
+  ctx.restore();
+}
+
+const skillBaseUpdateFlight = updateFlight;
+updateFlight = function updateFlightWithCurve() {
+  if (!ball.flight) return false;
+
+  const shot = ball.flight;
+  shot.progress += 1;
+  const t = clamp(shot.progress / shot.duration, 0, 1);
+  const ease = 1 - Math.pow(1 - t, 2);
+  const arc = Math.sin(t * Math.PI);
+  const baseX = shot.startX + (shot.landingX - shot.startX) * ease;
+  const baseY = shot.startY + (shot.landingY - shot.startY) * ease;
+  const curveOffset = (shot.curvePixels || 0) * Math.sin(t * Math.PI);
+  const perpX = -Math.sin(shot.angle);
+  const perpY = Math.cos(shot.angle);
+
+  ball.x = baseX + perpX * curveOffset;
+  ball.y = baseY + perpY * curveOffset;
+  ball.visualScale = 1 + arc * shot.height;
+
+  if (t < 1) return true;
+
+  ball.flight = null;
+  ball.visualScale = 1;
+
+  const landingSurfaceKey = surfaceAt(ball.x, ball.y);
+  if (landingSurfaceKey === "water") {
+    takePenalty("Water hazard. One-stroke penalty and ball returned to previous lie.");
+    return true;
+  }
+
+  const landingSurface = surfaces[landingSurfaceKey];
+  const club = clubs[shot.clubKey];
+  const bounceLuck = 0.75 + Math.random() * 0.45;
+  const rollYards = shot.carryYards * landingSurface.roll * club.rollBias * bounceLuck;
+
+  if (startLandingBounce(shot, landingSurfaceKey, rollYards)) {
+    message = `Landed on ${landingSurface.label}.`;
+    updateHud();
+    return true;
+  }
+
+  if (rollYards < 1) {
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.moving = false;
+    lastSafe = { x: ball.x, y: ball.y };
+    updateSuggestedClub(landingSurfaceKey);
+    message = `Landed on ${landingSurface.label}. Almost no extra roll.`;
+    updateHud();
+    return true;
+  }
+
+  launchRoll(shot.angle, rollYards, landingSurfaceKey);
+  message = `Landed on ${landingSurface.label}. Extra roll: ${Math.round(rollYards)} yd.`;
+  updateHud();
+  return true;
+};
 
 const skillBaseHitShot = hitShot;
 hitShot = startSkillShot;
@@ -239,6 +371,7 @@ const skillBaseDraw = draw;
 draw = function drawWithSkillBar() {
   skillBaseDraw();
   drawSkillBar();
+  drawSkillFeedback();
 };
 
 canvas.addEventListener("pointerdown", (event) => {
@@ -251,8 +384,10 @@ canvas.addEventListener("pointerdown", (event) => {
 
 resetShotButton.addEventListener("click", () => {
   skillShot = null;
+  skillFeedback = null;
 });
 
 newHoleButton.addEventListener("click", () => {
   skillShot = null;
+  skillFeedback = null;
 });
