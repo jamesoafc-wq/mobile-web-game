@@ -13,8 +13,9 @@ const newHoleButton = document.querySelector("#newHole");
 
 const W = canvas.width;
 const H = canvas.height;
-const YARDS_PER_PIXEL = 0.72;
+const YARDS_PER_PIXEL = 0.92;
 const MAX_DRAG = 105;
+const PUTTING_ZOOM = 2.35;
 
 const clubs = {
   driver: {
@@ -22,48 +23,48 @@ const clubs = {
     short: "DR",
     accuracy: 10,
     type: "full",
-    rollBias: 1.25,
-    carry: { tee: 300, fairway: 235, rough: 75, sand: 0, green: 35 }
+    rollBias: 1.2,
+    carry: { tee: 285, fairway: 225, rough: 70, sand: 0, green: 25 }
   },
   wood3: {
     name: "3 Wood",
     short: "3W",
     accuracy: 8,
     type: "full",
-    rollBias: 1.1,
-    carry: { tee: 255, fairway: 225, rough: 95, sand: 0, green: 30 }
+    rollBias: 1.05,
+    carry: { tee: 245, fairway: 215, rough: 90, sand: 0, green: 22 }
   },
   iron5: {
     name: "5 Iron",
     short: "5I",
     accuracy: 6,
     type: "full",
-    rollBias: 0.75,
-    carry: { tee: 190, fairway: 180, rough: 130, sand: 35, green: 22 }
+    rollBias: 0.72,
+    carry: { tee: 185, fairway: 175, rough: 125, sand: 35, green: 18 }
   },
   iron7: {
     name: "7 Iron",
     short: "7I",
     accuracy: 4.8,
     type: "full",
-    rollBias: 0.55,
-    carry: { tee: 160, fairway: 150, rough: 115, sand: 45, green: 18 }
+    rollBias: 0.52,
+    carry: { tee: 155, fairway: 145, rough: 110, sand: 45, green: 16 }
   },
   wedgeP: {
     name: "Pitching Wedge",
     short: "PW",
     accuracy: 3.7,
     type: "full",
-    rollBias: 0.32,
-    carry: { tee: 110, fairway: 105, rough: 85, sand: 55, green: 14 }
+    rollBias: 0.3,
+    carry: { tee: 108, fairway: 102, rough: 82, sand: 55, green: 12 }
   },
   wedgeS: {
     name: "Sand Wedge",
     short: "SW",
     accuracy: 4.2,
     type: "full",
-    rollBias: 0.2,
-    carry: { tee: 85, fairway: 80, rough: 65, sand: 70, green: 12 }
+    rollBias: 0.18,
+    carry: { tee: 84, fairway: 78, rough: 62, sand: 70, green: 10 }
   },
   putter: {
     name: "Putter",
@@ -71,16 +72,16 @@ const clubs = {
     accuracy: 1.2,
     type: "putt",
     rollBias: 1,
-    carry: { tee: 30, fairway: 25, rough: 10, sand: 0, green: 55 }
+    carry: { tee: 24, fairway: 22, rough: 8, sand: 0, green: 45 }
   }
 };
 
 const surfaces = {
-  tee: { label: "Tee", accuracy: 1, friction: 0.982, roll: 0.16 },
-  fairway: { label: "Fairway", accuracy: 1, friction: 0.982, roll: 0.18 },
-  rough: { label: "Rough", accuracy: 1.65, friction: 0.955, roll: 0.06 },
-  sand: { label: "Sand", accuracy: 2.15, friction: 0.92, roll: 0.015 },
-  green: { label: "Green", accuracy: 0.78, friction: 0.988, roll: 0.28 },
+  tee: { label: "Tee", accuracy: 1, friction: 0.982, roll: 0.13 },
+  fairway: { label: "Fairway", accuracy: 1, friction: 0.982, roll: 0.16 },
+  rough: { label: "Rough", accuracy: 1.65, friction: 0.955, roll: 0.055 },
+  sand: { label: "Sand", accuracy: 2.15, friction: 0.92, roll: 0.012 },
+  green: { label: "Green", accuracy: 0.78, friction: 0.988, roll: 0.24 },
   water: { label: "Water", accuracy: 10, friction: 0.85, roll: 0 }
 };
 
@@ -191,6 +192,29 @@ function getMaxCarry(clubKey = selectedClub, surfaceKey = surfaceAt(ball.x, ball
 function getCurrentPower() {
   if (!drag) return 0;
   return clamp(distance(ball, drag) / MAX_DRAG, 0, 1);
+}
+
+function isPuttingView() {
+  return selectedClub === "putter" && surfaceAt(ball.x, ball.y) === "green" && !ball.holed;
+}
+
+function getCamera() {
+  if (!isPuttingView()) return { zoom: 1, tx: 0, ty: 0 };
+
+  const centerX = ball.x * 0.42 + course.hole.x * 0.58;
+  const centerY = ball.y * 0.42 + course.hole.y * 0.58;
+  const zoom = PUTTING_ZOOM;
+  const tx = clamp(W / 2 - centerX * zoom, W - W * zoom, 0);
+  const ty = clamp(H / 2 - centerY * zoom, H - H * zoom, 0);
+  return { zoom, tx, ty };
+}
+
+function screenToWorld(screenPoint) {
+  const camera = getCamera();
+  return {
+    x: clamp((screenPoint.x - camera.tx) / camera.zoom, 0, W),
+    y: clamp((screenPoint.y - camera.ty) / camera.zoom, 0, H)
+  };
 }
 
 function drawEllipse(shape, fillStyle, strokeStyle = null, lineWidth = 1) {
@@ -343,13 +367,9 @@ function drawAim() {
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, 26, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.96)";
-    ctx.font = "800 15px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillText("No carry", ball.x, ball.y - 36);
   } else {
     ctx.setLineDash([10, 8]);
-    ctx.lineWidth = 4;
+    ctx.lineWidth = club.type === "putt" ? 2.5 : 4;
     ctx.strokeStyle = club.type === "putt" ? "rgba(255,245,170,0.9)" : "rgba(255,255,255,0.82)";
     ctx.beginPath();
     ctx.moveTo(ball.x, ball.y);
@@ -359,38 +379,79 @@ function drawAim() {
 
     ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.beginPath();
-    ctx.arc(targetX, targetY, club.type === "putt" ? 6 : 9, 0, Math.PI * 2);
+    ctx.arc(targetX, targetY, club.type === "putt" ? 4 : 8, 0, Math.PI * 2);
     ctx.fill();
-
-    ctx.fillStyle = "rgba(14, 27, 11, 0.82)";
-    roundRect(targetX - 43, targetY - 36, 86, 24, 12);
-    ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.font = "800 12px system-ui";
-    ctx.textAlign = "center";
-    const label = club.type === "putt" ? "Roll" : "Carry";
-    ctx.fillText(`${label} ${Math.round(carryYards)}y`, targetX, targetY - 20);
   }
 
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
   ctx.beginPath();
-  ctx.arc(drag.x, drag.y, 12 + power * 10, 0, Math.PI * 2);
+  ctx.arc(drag.x, drag.y, 10 + power * 8, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
+}
 
-  ctx.fillStyle = "#10200c";
-  ctx.font = "700 18px system-ui";
+function drawScreenHud() {
+  const surfaceKey = surfaceAt(ball.x, ball.y);
+  const club = clubs[selectedClub];
+  const maxCarry = getMaxCarry(selectedClub, surfaceKey);
+  const label = club.type === "putt" ? "Roll" : "Carry";
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  if (isPuttingView()) {
+    ctx.fillStyle = "rgba(9, 22, 9, 0.78)";
+    roundRect(14, 14, 122, 30, 15);
+    ctx.fill();
+    ctx.fillStyle = "#fff7a8";
+    ctx.font = "800 13px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText("Green zoom", 75, 34);
+  }
+
+  if (!drag || ball.moving || ball.holed) {
+    ctx.restore();
+    return;
+  }
+
+  const power = getCurrentPower();
+  const projected = Math.round(maxCarry * power);
+  const text = maxCarry > 0
+    ? `${club.short} · ${label} ${projected}y / ${maxCarry}y · ${Math.round(power * 100)}%`
+    : `${club.short} · No playable shot from ${surfaces[surfaceKey].label}`;
+
+  const panelW = 330;
+  const panelX = (W - panelW) / 2;
+  ctx.fillStyle = "rgba(8, 18, 7, 0.86)";
+  roundRect(panelX, H - 64, panelW, 40, 20);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.16)";
+  ctx.stroke();
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "800 15px system-ui";
   ctx.textAlign = "center";
-  ctx.fillText(`${Math.round(power * 100)}%`, drag.x, drag.y + 6);
+  ctx.fillText(text, W / 2, H - 39);
   ctx.restore();
 }
 
 function draw() {
+  const camera = getCamera();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.setTransform(camera.zoom, 0, 0, camera.zoom, camera.tx, camera.ty);
   drawCourse();
   drawAim();
   drawBall();
+  ctx.restore();
+
+  drawScreenHud();
 
   if (ball.holed) {
     ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "rgba(0,0,0,0.48)";
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "#fff";
@@ -459,7 +520,7 @@ function hitShot(pointer) {
     landingX,
     landingY,
     progress: 0,
-    duration: clamp(18 + carryPixels / 9, 20, 58),
+    duration: clamp(18 + carryPixels / 8, 20, 58),
     angle,
     carryYards,
     clubKey: selectedClub
@@ -578,11 +639,11 @@ function takePenalty(text) {
 }
 
 function nextLieMessage(surfaceKey) {
-  if (surfaceKey === "green") return "On the green. Putter selected for a putting stroke.";
+  if (surfaceKey === "green") return "On the green. Green zoom and putter selected.";
   if (surfaceKey === "sand") return "In the bunker. Sand wedge is usually safest; Driver and 3W have no carry here.";
   if (surfaceKey === "rough") return "In the rough. Longer clubs lose a lot of carry and accuracy here.";
   if (surfaceKey === "fairway") return "Fairway lie. Full clubs carry much better from here.";
-  if (surfaceKey === "tee") return "Tee shot. Driver has its full carry from here.";
+  if (surfaceKey === "tee") return "Tee shot. Driver should leave an approach on this par 4.";
   return "Ready for the next shot.";
 }
 
@@ -617,10 +678,11 @@ function updateHud() {
 
 function getPointer(event) {
   const rect = canvas.getBoundingClientRect();
-  return {
+  const screenPoint = {
     x: clamp(((event.clientX - rect.left) / rect.width) * W, 0, W),
     y: clamp(((event.clientY - rect.top) / rect.height) * H, 0, H)
   };
+  return screenToWorld(screenPoint);
 }
 
 function setClub(clubKey, updateMessage = true) {
@@ -665,7 +727,7 @@ function restartHole() {
   selectedClub = "driver";
   previousSafe = { x: ball.x, y: ball.y };
   lastSafe = { x: ball.x, y: ball.y };
-  message = "Pull back from the ball, aim, then release. The dotted line now shows carry distance, not total roll.";
+  message = "Par 4 balance pass: driver should now leave an approach, not reach the green.";
   clubButtons.forEach((button) => {
     button.classList.toggle("selected", button.dataset.club === selectedClub);
   });
