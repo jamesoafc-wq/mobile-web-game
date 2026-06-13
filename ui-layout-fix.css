@@ -1,10 +1,14 @@
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
 }
 
 body {
   padding: 6px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0) 22%),
+    radial-gradient(circle at 50% 0%, #142718 0%, #081008 72%);
 }
 
 .top-panel,
@@ -28,39 +32,82 @@ body {
   height: 100%;
   max-height: none;
   align-self: stretch;
+  border-radius: 12px;
+  border: 1px solid rgba(222, 255, 210, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.34),
+    0 18px 38px rgba(0,0,0,0.38);
 }
 
 .actions {
   grid-row: 2;
-  padding: 6px;
-  gap: 6px;
+  padding: 5px;
+  gap: 5px;
+  background: rgba(7, 12, 8, 0.88);
+  border: 1px solid rgba(222,255,210,0.14);
+  border-radius: 10px;
+  backdrop-filter: none;
 }
 
 .actions button {
   padding: 7px 8px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
+  min-height: 30px;
+  border-radius: 7px;
+  border: 1px solid rgba(222,255,210,0.15);
+  background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025));
+  color: #eaf4e3;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.actions button:active,
+.club-panel button:active {
+  transform: translateY(1px);
 }
 
 .club-panel {
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: 50px;
+  bottom: 48px;
   z-index: 5;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-  padding: 7px;
-  background: rgba(8, 18, 9, 0.76);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 16px;
-  backdrop-filter: blur(8px);
+  gap: 4px;
+  padding: 5px;
+  background: rgba(5, 11, 7, 0.88);
+  border: 1px solid rgba(222,255,210,0.16);
+  border-radius: 10px;
+  box-shadow:
+    0 10px 24px rgba(0,0,0,0.24),
+    inset 0 1px 0 rgba(255,255,255,0.07);
+  backdrop-filter: none;
 }
 
 .club-panel button {
-  padding: 8px 3px;
-  font-size: 0.74rem;
-  border-radius: 10px;
+  padding: 8px 2px;
+  min-height: 31px;
+  font-size: 0.68rem;
+  border-radius: 6px;
+  border: 1px solid rgba(222,255,210,0.12);
+  background: rgba(255,255,255,0.045);
+  color: rgba(236,246,228,0.86);
+  font-weight: 850;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.club-panel button.selected {
+  color: #071007;
+  background: linear-gradient(180deg, #c8f47c 0%, #86d758 100%);
+  border-color: rgba(230,255,179,0.86);
+  box-shadow:
+    0 0 0 1px rgba(5,15,5,0.28),
+    0 0 14px rgba(132,215,88,0.32),
+    inset 0 1px 0 rgba(255,255,255,0.42);
 }
 
 @media (max-width: 520px) {
@@ -74,25 +121,32 @@ body {
     gap: 5px;
   }
 
+  #course {
+    border-radius: 10px;
+  }
+
   .actions {
-    padding: 5px;
+    padding: 4px;
   }
 
   .actions button {
-    padding: 6px 6px;
-    font-size: 0.74rem;
+    padding: 6px;
+    font-size: 0.7rem;
+    min-height: 28px;
   }
 
   .club-panel {
     left: 8px;
     right: 8px;
-    bottom: 43px;
-    gap: 4px;
-    padding: 6px;
+    bottom: 40px;
+    gap: 3px;
+    padding: 4px;
+    border-radius: 9px;
   }
 
   .club-panel button {
-    padding: 7px 2px;
-    font-size: 0.7rem;
+    padding: 7px 1px;
+    min-height: 29px;
+    font-size: 0.64rem;
   }
 }
