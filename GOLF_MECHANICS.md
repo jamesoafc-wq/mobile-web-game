@@ -21,23 +21,28 @@ Use a pull-back control:
 1. Touch and hold on the course.
 2. Drag away from the target direction.
 3. The farther the drag, the higher the power.
-4. Release to hit the shot.
+4. Release to lock in aim and power.
+5. Tap the moving strike bar when the marker is inside the green sweet spot.
 
 The tee and starting ball position have been moved higher up the screen, and max pull distance has been shortened so a full-power tee shot should not require dragging into the bottom club menu.
 
-## Future shot skill element
+## Shot skill element
 
-The current version is still pure aim/power. Eagle is still too easy with two strong driver shots, but we should not over-nerf distances until a skill mechanic exists.
+A shot timing bar now appears after aim/power is lined up. The player must tap when the moving marker is in the green sweet spot.
 
-Planned skill mechanic:
+The sweet spot changes per club, surface, and shot power:
 
-- Player aims and sets power first.
-- A moving strike/accuracy bar appears.
-- Hitting the green zone gives full accuracy and clean contact.
-- Missing slightly adds directional error, reduced carry, or worse bounce.
-- Missing badly can cause hooks, slices, thin shots, heavy shots, or bad lies being much harder to escape.
+- Driver is harder than irons, even from the tee.
+- Woods are also difficult, especially from fairway/rough.
+- Mid irons are easier from tee and fairway.
+- Wedges are easier from fairway/rough but harder from bunkers.
+- Sand adds a large difficulty penalty, so bunker recovery is not easy.
+- Rough also adds a meaningful difficulty penalty.
+- Higher power makes the timing slightly harder.
 
-This will let risky shots, driver-off-deck shots, long rough shots, and green-attacking approaches feel appropriately harder without making the basic controls frustrating.
+Good timing gives clean carry and lower directional miss. Missing the sweet spot reduces carry and increases offline error. Bad misses can hook or slice depending on which side of the bar is missed.
+
+Future customisation can improve this system by giving better clubs wider sweet spots, slower timing bars, or smaller miss penalties.
 
 ## Readability while dragging
 
@@ -95,14 +100,14 @@ This should make club choice much clearer. For example, Driver is excellent from
 
 ## Lie and surface rules
 
-| Surface | Carry behaviour | Accuracy | Roll/friction | Gameplay purpose |
-| --- | --- | --- | --- | --- |
-| Tee | Strong driver carry, but not green-reaching on a par 4 | normal | modest roll | Strong first shot |
-| Fairway | Strong carry | normal | good roll | Ideal landing area |
-| Rough | Reduced carry | worse | little roll | Punishes misses without stopping play |
-| Sand | Only wedges work well | much worse | plug/stop, almost no bounce | Forces recovery shots |
-| Green | Best for putting | accurate | high roll | Putting surface |
-| Water/out of bounds | penalty | n/a | n/a | Adds risk/reward |
+| Surface | Carry behaviour | Accuracy | Timing difficulty | Roll/friction | Gameplay purpose |
+| --- | --- | --- | --- | --- | --- |
+| Tee | Strong driver carry, but not green-reaching on a par 4 | normal | easiest lie, club still matters | modest roll | Strong first shot |
+| Fairway | Strong carry | normal | easy-medium | good roll | Ideal landing area |
+| Rough | Reduced carry | worse | hard | little roll | Punishes misses without stopping play |
+| Sand | Only wedges work well | much worse | very hard | plug/stop, almost no bounce | Forces recovery shots |
+| Green | Best for putting | accurate | low-medium | high roll | Putting surface |
+| Water/out of bounds | penalty | n/a | n/a | n/a | Adds risk/reward |
 
 ## Shot model for MVP
 
@@ -110,8 +115,12 @@ The prototype uses a simple 2D model:
 
 - Club + current lie chooses a maximum carry/roll distance from the matrix.
 - Drag power scales that maximum.
-- Club accuracy adds a small random angle error.
-- Normal clubs fly to the shown carry point.
+- Release opens a timing bar instead of immediately striking the shot.
+- Club, surface, and power combine into a difficulty rating.
+- Harder shots have a smaller sweet spot and faster moving marker.
+- Clean timing preserves carry and reduces directional miss.
+- Poor timing reduces carry and adds hook/slice style angle error.
+- Normal clubs fly to the final calculated carry point.
 - During flight, the ball visually scales up and back down to suggest height.
 - After landing, carried shots do a short bounce animation unless they land in sand.
 - After bouncing, surface and club type calculate a small amount of extra roll, except sand which should stop the ball.
