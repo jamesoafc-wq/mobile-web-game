@@ -2,22 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Top-Down Golf Mechanics Sandbox</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Top-Down Golf Prototype</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="app-shell">
-    <section class="top-panel" aria-label="Hole information">
+    <header class="top-panel">
       <div>
-        <p class="eyebrow">Hole 1 · Par 4</p>
+        <p class="eyebrow" id="holeLabel">Hole 1 · Par 4</p>
         <h1>Top-Down Golf</h1>
+        <p class="sub">Pull back to aim, then tap the strike bar. Read the green and pace your putts.</p>
       </div>
       <div class="score-card">
         <span>Strokes</span>
         <strong id="strokes">0</strong>
       </div>
-    </section>
+    </header>
 
     <section class="status-grid" aria-label="Shot status">
       <div><span>Lie</span><strong id="lie">Tee</strong></div>
@@ -26,7 +27,7 @@
       <div><span>Power</span><strong id="power">0%</strong></div>
     </section>
 
-    <canvas id="course" width="480" height="720" aria-label="Playable top-down golf course"></canvas>
+    <canvas id="course" width="420" height="760" aria-label="Playable top-down golf course"></canvas>
 
     <section class="club-panel" aria-label="Golf bag club selection">
       <button data-club="driver" class="selected">Driver</button>
@@ -43,14 +44,13 @@
       <button id="newHole" type="button">Restart hole</button>
     </section>
 
-    <p class="hint" id="hint">Pull back from the ball, aim, then release. Then tap the timing bar in the green sweet spot to strike the shot.</p>
+    <p class="hint" id="hint">Pull back from the ball, release to lock aim and power, then tap the moving strike marker in the green zone.</p>
   </main>
 
+  <script src="shared.js"></script>
+  <script src="hole-data.js"></script>
+  <script src="props.js"></script>
+  <script src="surface-rendering.js"></script>
   <script src="game.js"></script>
-  <script src="sand-fix.js"></script>
-  <script src="skill-shot.js"></script>
-  <script src="long-club-lie-tuning.js"></script>
-  <script src="putting-slope.js"></script>
-  <script src="cup-tuning.js"></script>
 </body>
 </html>
