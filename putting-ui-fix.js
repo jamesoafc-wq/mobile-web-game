@@ -43,7 +43,7 @@ function forceStopDeadPutt() {
   if (!isPuttingLieNow()) return;
 
   const speed = Math.hypot(ball.vx, ball.vy);
-  if (speed < 0.018) {
+  if (speed < 0.012) {
     ball.vx = 0;
     ball.vy = 0;
     ball.moving = false;
@@ -67,16 +67,17 @@ resolveSkillShot = function resolveSkillShotWithScaledPutterHotfix() {
   originalResolveSkillShotHotfix();
 
   // The visual build's original putter speed used a fixed multiplier that made short putts too hot.
-  // Let the normal strike result happen, then rescale only putter velocity to a softer intended roll distance.
+  // Let the normal strike result happen, then rescale only putter velocity to a responsive roll distance.
   if (!shotBefore || shotBefore.clubKey !== 'putter' || !ball || ball.holed) return;
 
   const currentSpeed = Math.hypot(ball.vx, ball.vy);
   const angle = currentSpeed > 0 ? Math.atan2(ball.vy, ball.vx) : shotBefore.baseAngle;
-  const rollPixels = (shotBefore.maxCarry * shotBefore.power) / YARDS_PER_PIXEL;
+  const responsivePower = Math.pow(clamp(shotBefore.power, 0, 1), 0.82);
+  const rollPixels = (shotBefore.maxCarry * responsivePower) / YARDS_PER_PIXEL;
   const friction = rollFriction[shotBefore.lie] ?? rollFriction.green;
-  const correctedSpeed = rollPixels * (1 - friction) * 0.64;
+  const correctedSpeed = rollPixels * (1 - friction) * 0.88;
 
-  if (correctedSpeed <= 0.012) {
+  if (correctedSpeed <= 0.008) {
     ball.vx = 0;
     ball.vy = 0;
     ball.moving = false;
@@ -105,6 +106,58 @@ startLandingRoll = function startLandingRollWithAutoPutterHotfix(angle, lie, car
   selectPutterOnSettledGreen();
 };
 
+function getStrikeCancelButton() {
+  return {
+    x: canvas.width - 112,
+    y: canvas.height - 108,
+    w: 96,
+    h: 30
+  };
+}
+
+function drawStrikeCancelButton() {
+  if (!pendingShot) return;
+  const button = getStrikeCancelButton();
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = 'rgba(96, 32, 24, 0.92)';
+  roundRect(ctx, button.x, button.y, button.w, button.h, 14);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.stroke();
+  ctx.fillStyle = '#ffe8df';
+  ctx.font = '900 11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Cancel shot', button.x + button.w / 2, button.y + button.h / 2 + 0.5);
+  ctx.restore();
+}
+
+const originalDrawSkillBarHotfix = drawSkillBar;
+drawSkillBar = function drawSkillBarWithCancelHotfix() {
+  originalDrawSkillBarHotfix();
+  drawStrikeCancelButton();
+};
+
+canvas.addEventListener('pointerdown', (event) => {
+  if (!pendingShot) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+  const button = getStrikeCancelButton();
+  const inside = x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h;
+
+  if (!inside) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  pendingShot = null;
+  drag = null;
+  message = 'Shot cancelled. Choose a club or pull back again.';
+  updateHud();
+}, true);
+
 drawOverlayInfo = function drawInCanvasHudHotfix() {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -116,6 +169,7 @@ drawOverlayInfo = function drawInCanvasHudHotfix() {
   ctx.fillStyle = '#eef8c8';
   ctx.font = '900 11px system-ui';
   ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
   ctx.fillText(`${hole.name} · Par ${hole.par}`, 22, 23);
   ctx.font = '800 10px system-ui';
   ctx.fillText(`${surfaceLabels[getLie()]} · ${clubs[selectedClub].short}`, 22, 40);
