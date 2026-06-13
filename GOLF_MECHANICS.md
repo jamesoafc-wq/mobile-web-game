@@ -70,12 +70,13 @@ When the ball is on the green and the putter is selected, the canvas camera zoom
 Putting now has a first-pass slope system:
 
 - The green contains invisible slope zones.
-- The same slope zones drive both the animated arrows and the ball movement, so the read should match the physics.
-- Animated arrows appear in green zoom and point downhill.
-- Stronger slopes show more noticeable arrow movement.
-- The putt is nudged downhill each frame while it rolls on the green.
-- Slow putts take more break than firm putts.
-- Overlapping slope zones can create early left-to-right break followed by right-to-left break near the hole.
+- The same slope zones drive both the moving read marks and the ball movement, so the read should match the physics.
+- The slope data is deliberately course-driven: future holes can supply different `greenSlopeZones` for different green shapes.
+- The renderer samples across the whole green shape instead of only around the cup.
+- The previous funnel-like effect has been reduced by lowering slope strength and avoiding zones that point directly into the hole.
+- The old chunky arrowheads have been replaced by subtler moving dash marks with a small leading dot.
+- The putt is nudged gently downhill each frame while it rolls on the green.
+- Slow putts take more break than firm putts, but slopes should influence the line rather than drag the ball into the cup.
 
 This is intentionally simpler than a full height map, but it gives the core putting challenge: choosing both line and pace.
 
@@ -83,12 +84,13 @@ This is intentionally simpler than a full height map, but it gives the core putt
 
 The cup is now less forgiving before putting zoom and when putts are too fast:
 
+- The cup is visually smaller during putting zoom.
 - Approach shots, chips, and rolling shots before the putter/green zoom phase have a much smaller effective capture area.
 - Holing out from range can still happen, but it should be rare and require a very accurate slow ball.
 - Once the ball is on the green with the putter selected, cup forgiveness depends on pace.
-- Slow putts get the normal capture area.
-- Medium-speed putts get a smaller capture area.
-- Fast putts have to be nearly dead-centre or they roll past/lip out.
+- Slow putts get a smaller capture area than before.
+- Medium-speed putts get a tight capture area.
+- Fast putts have to be almost perfectly centre-cup or they roll past/lip out.
 
 This separates lucky chip-ins from normal putting, and makes the zoomed putting phase more meaningful.
 
@@ -143,7 +145,7 @@ This should make club choice much clearer. Driver and 3 Wood are strong from the
 | Fairway | Strong carry for irons/wedges; weak for driver/3W off the deck | normal | easy-medium, but long clubs are very hard | good roll | Ideal landing area |
 | Rough | Reduced carry | worse | hard | little roll | Punishes misses without stopping play |
 | Sand | Only wedges work well | much worse | very hard | plug/stop, almost no bounce | Forces recovery shots |
-| Green | Best for putting | accurate | low-medium plus slope read | high roll with break | Putting surface |
+| Green | Best for putting | accurate | low-medium plus slope read | high roll with gentle break | Putting surface |
 | Water/out of bounds | penalty | n/a | n/a | n/a | Adds risk/reward |
 
 ## Shot model for MVP
@@ -163,7 +165,7 @@ The prototype uses a simple 2D model:
 - During flight, the ball visually scales up and back down to suggest height.
 - The effective cup capture is smaller before the zoomed putting phase.
 - Putts roll immediately, then green slopes can bend the ball based on line and pace.
-- Fast putts get a smaller effective cup capture than slow putts.
+- Fast putts get a much smaller effective cup capture than slow putts.
 - After landing, carried shots do a short bounce animation unless they land in sand.
 - After bouncing, surface and club type calculate a small amount of extra roll, except sand which should stop the ball.
 - If the ball lands or rolls into water, it returns to the previous safe lie with a penalty stroke.
