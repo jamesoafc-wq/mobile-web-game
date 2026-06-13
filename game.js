@@ -322,11 +322,19 @@ function startLandingRoll(angle, lie, carryYards, clubKey) {
     updateHud();
     return;
   }
-  const rollYards = carryYards * (club.rollBias || 0.5) * ({ tee: 0.22, fairway: 0.2, rough: 0.06, fringe: 0.08, green: 0.03 }[lie] ?? 0.08) * (0.85 + Math.random() * 0.3);
-  const speed = (rollYards / YARDS_PER_PIXEL) * 0.11;
+  const rollFactor = ({ tee: 0.14, fairway: 0.12, rough: 0.035, fringe: 0.045, green: 0.018 }[lie] ?? 0.05);
+  const rollYards = carryYards * (club.rollBias || 0.5) * rollFactor * (0.82 + Math.random() * 0.22);
+  const rollPixels = rollYards / YARDS_PER_PIXEL;
+  const surfaceFriction = rollFriction[lie] ?? 0.98;
+
+  // Convert desired roll distance into initial velocity based on the current surface friction.
+  // The previous visual-system build used a fixed multiplier that made drives roll hundreds
+  // of pixels after landing.
+  const speed = rollPixels * (1 - surfaceFriction) * 1.12;
+
   ball.vx = Math.cos(angle) * speed;
   ball.vy = Math.sin(angle) * speed;
-  ball.moving = true;
+  ball.moving = speed > 0.025;
 }
 
 function updateFlight() {
