@@ -64,6 +64,16 @@ The prototype now uses a larger yardage scale: `0.92 yards per pixel`. That make
 
 When the ball is on the green and the putter is selected, the canvas camera zooms in on the green. The underlying course coordinates do not change; only the view changes. This is intended to make short putts easier to judge on mobile.
 
+## Cup difficulty
+
+The cup is now less forgiving before putting zoom:
+
+- Approach shots, chips, and rolling shots before the putter/green zoom phase have a much smaller effective capture area.
+- Holing out from range can still happen, but it should be rare and require a very accurate slow ball.
+- Once the ball is on the green with the putter selected, the normal putting cup forgiveness is restored.
+
+This separates lucky chip-ins from normal putting, and makes the zoomed putting phase more meaningful.
+
 ## Ball flight animation
 
 Carried shots now visually rise, land, bounce, then roll:
@@ -132,6 +142,7 @@ The prototype uses a simple 2D model:
 - Poor timing reduces carry, adds hook/slice angle error, and can add visible flight curve.
 - Normal clubs fly to the final calculated carry point.
 - During flight, the ball visually scales up and back down to suggest height.
+- The effective cup capture is smaller before the zoomed putting phase.
 - After landing, carried shots do a short bounce animation unless they land in sand.
 - After bouncing, surface and club type calculate a small amount of extra roll, except sand which should stop the ball.
 - Putter shots roll immediately rather than flying or bouncing.
