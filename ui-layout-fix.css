@@ -14,21 +14,24 @@ body {
 }
 
 .app-shell {
+  position: relative;
   width: min(100%, 560px);
   height: calc(100dvh - 12px);
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 6px;
 }
 
 #course {
+  grid-row: 1;
   height: 100%;
   max-height: none;
   align-self: stretch;
 }
 
 .actions {
+  grid-row: 2;
   padding: 6px;
   gap: 6px;
 }
@@ -39,14 +42,25 @@ body {
 }
 
 .club-panel {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 50px;
+  z-index: 5;
+  display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 5px;
   padding: 7px;
+  background: rgba(8, 18, 9, 0.76);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
 }
 
 .club-panel button {
   padding: 8px 3px;
   font-size: 0.74rem;
+  border-radius: 10px;
 }
 
 @media (max-width: 520px) {
@@ -70,6 +84,9 @@ body {
   }
 
   .club-panel {
+    left: 8px;
+    right: 8px;
+    bottom: 43px;
     gap: 4px;
     padding: 6px;
   }
