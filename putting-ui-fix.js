@@ -106,12 +106,21 @@ startLandingRoll = function startLandingRollWithAutoPutterHotfix(angle, lie, car
   selectPutterOnSettledGreen();
 };
 
+function getSkillPanelRect() {
+  const panelW = Math.min(350, canvas.width - 24);
+  const panelH = 88;
+  const panelX = (canvas.width - panelW) / 2;
+  const panelY = Math.max(84, canvas.height - 190);
+  return { x: panelX, y: panelY, w: panelW, h: panelH };
+}
+
 function getStrikeCancelButton() {
+  const panel = getSkillPanelRect();
   return {
-    x: canvas.width - 112,
-    y: canvas.height - 108,
+    x: panel.x + panel.w - 112,
+    y: panel.y + 52,
     w: 96,
-    h: 30
+    h: 26
   };
 }
 
@@ -121,40 +130,155 @@ function drawStrikeCancelButton() {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = 'rgba(96, 32, 24, 0.92)';
-  roundRect(ctx, button.x, button.y, button.w, button.h, 14);
+  roundRect(ctx, button.x, button.y, button.w, button.h, 13);
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.18)';
   ctx.stroke();
   ctx.fillStyle = '#ffe8df';
-  ctx.font = '900 11px system-ui';
+  ctx.font = '900 10px system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('Cancel shot', button.x + button.w / 2, button.y + button.h / 2 + 0.5);
   ctx.restore();
 }
 
-const originalDrawSkillBarHotfix = drawSkillBar;
-drawSkillBar = function drawSkillBarWithCancelHotfix() {
-  originalDrawSkillBarHotfix();
+drawSkillBar = function drawSkillBarAboveClubOverlay() {
+  if (!pendingShot) return;
+  const marker = getSkillMarkerPosition();
+  const panel = getSkillPanelRect();
+  const barX = panel.x + 22;
+  const barY = panel.y + 38;
+  const barW = panel.w - 44;
+  const barH = 16;
+  const middleWidth = clamp(pendingShot.sweetWidth + 0.28 - pendingShot.difficulty * 0.06, pendingShot.sweetWidth + 0.14, 0.48);
+  const middleX = barX + (0.5 - middleWidth / 2) * barW;
+  const sweetX = barX + (0.5 - pendingShot.sweetWidth / 2) * barW;
+  const markerX = barX + marker * barW;
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = 'rgba(7, 13, 7, 0.93)';
+  roundRect(ctx, panel.x, panel.y, panel.w, panel.h, 18);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font = '800 13px system-ui';
+  ctx.fillText(`${clubs[pendingShot.clubKey].short} from ${surfaceLabels[pendingShot.lie]} · tap green`, canvas.width / 2, panel.y + 21);
+
+  ctx.fillStyle = 'rgba(255,92,92,0.58)';
+  roundRect(ctx, barX, barY, barW, barH, 8);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,205,86,0.78)';
+  roundRect(ctx, middleX, barY, middleWidth * barW, barH, 8);
+  ctx.fill();
+  ctx.fillStyle = '#72dd66';
+  roundRect(ctx, sweetX, barY - 2, pendingShot.sweetWidth * barW, barH + 4, 9);
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(markerX, barY - 8);
+  ctx.lineTo(markerX, barY + barH + 8);
+  ctx.stroke();
+
+  ctx.fillStyle = '#d7eac8';
+  ctx.font = '700 10px system-ui';
+  ctx.fillText('green = sweet · yellow = safe · red = bad', canvas.width / 2 - 34, panel.y + 72);
+  ctx.restore();
+
   drawStrikeCancelButton();
 };
 
-canvas.addEventListener('pointerdown', (event) => {
-  if (!pendingShot) return;
+let virtualDrag = null;
 
+function canvasPointFromEvent(event) {
   const rect = canvas.getBoundingClientRect();
-  const x = (event.clientX - rect.left) * (canvas.width / rect.width);
-  const y = (event.clientY - rect.top) * (canvas.height / rect.height);
-  const button = getStrikeCancelButton();
-  const inside = x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h;
+  return {
+    x: (event.clientX - rect.left) * (canvas.width / rect.width),
+    y: (event.clientY - rect.top) * (canvas.height / rect.height)
+  };
+}
 
-  if (!inside) return;
+function cancelPendingShot() {
+  pendingShot = null;
+  drag = null;
+  virtualDrag = null;
+  message = 'Shot cancelled. Choose a club or pull back again.';
+  updateHud();
+}
+
+canvas.addEventListener('pointerdown', (event) => {
+  if (pendingShot) {
+    const point = canvasPointFromEvent(event);
+    const button = getStrikeCancelButton();
+    const inside = point.x >= button.x && point.x <= button.x + button.w && point.y >= button.y && point.y <= button.y + button.h;
+    if (!inside) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    cancelPendingShot();
+    return;
+  }
+
+  if (ball.moving || ball.holed) return;
+
+  const worldPoint = screenToWorld(canvas, getCamera(), event.clientX, event.clientY);
+  virtualDrag = {
+    anchorX: worldPoint.x,
+    anchorY: worldPoint.y,
+    pointerId: event.pointerId
+  };
+  drag = { startX: worldPoint.x, startY: worldPoint.y, angle: 0, power: 0, virtual: true };
+  message = 'Pull back from anywhere to aim.';
+  updateHud();
 
   event.preventDefault();
   event.stopImmediatePropagation();
-  pendingShot = null;
+  if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
+}, true);
+
+canvas.addEventListener('pointermove', (event) => {
+  if (!virtualDrag || pendingShot || ball.moving || ball.holed) return;
+  if (event.pointerId !== virtualDrag.pointerId) return;
+
+  const point = screenToWorld(canvas, getCamera(), event.clientX, event.clientY);
+  const pullX = virtualDrag.anchorX - point.x;
+  const pullY = virtualDrag.anchorY - point.y;
+  drag.angle = Math.atan2(pullY, pullX);
+  drag.power = clamp(Math.hypot(pullX, pullY) / 105, 0, 1);
+  updateHud();
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}, true);
+
+canvas.addEventListener('pointerup', (event) => {
+  if (!virtualDrag || pendingShot || ball.moving || ball.holed) return;
+  if (event.pointerId !== virtualDrag.pointerId) return;
+
+  const angle = drag.angle;
+  const power = drag.power;
+  const fakePointer = {
+    x: ball.x - Math.cos(angle) * power * 120,
+    y: ball.y - Math.sin(angle) * power * 120
+  };
+
+  virtualDrag = null;
+  startSkillShot(fakePointer);
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (canvas.releasePointerCapture) canvas.releasePointerCapture(event.pointerId);
+}, true);
+
+canvas.addEventListener('pointercancel', (event) => {
+  if (!virtualDrag) return;
+  if (event.pointerId !== virtualDrag.pointerId) return;
+  virtualDrag = null;
   drag = null;
-  message = 'Shot cancelled. Choose a club or pull back again.';
   updateHud();
 }, true);
 
