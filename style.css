@@ -16,8 +16,10 @@ body { display: flex; justify-content: center; padding: 12px; }
 
 .app-shell {
   width: min(100%, 540px);
+  min-height: calc(100dvh - 24px);
   display: grid;
-  gap: 12px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  gap: 10px;
 }
 
 .top-panel, .status-grid, .club-panel, .actions, .hint {
@@ -74,8 +76,10 @@ h1 { margin: 0; font-size: 1.35rem; }
 .status-grid strong { font-size: 0.94rem; }
 
 #course {
-  width: 100%;
-  height: auto;
+  width: auto;
+  max-width: 100%;
+  height: min(52dvh, 560px);
+  justify-self: center;
   display: block;
   border-radius: 20px;
   background: #2b5a2f;
@@ -123,6 +127,13 @@ h1 { margin: 0; font-size: 1.35rem; }
 
 @media (max-width: 520px) {
   body { padding: 8px; }
-  .status-grid { grid-template-columns: repeat(2, 1fr); }
-  .club-panel { grid-template-columns: repeat(4, 1fr); }
+  .app-shell { min-height: calc(100dvh - 16px); gap: 8px; }
+  .top-panel { padding: 11px 12px; }
+  .sub { display: none; }
+  .status-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; }
+  .status-grid div { padding: 6px 4px; }
+  .club-panel { grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 8px; }
+  .club-panel button { padding: 8px 3px; font-size: 0.74rem; }
+  .actions { padding: 8px; }
+  .hint { padding: 9px 11px; font-size: 0.84rem; }
 }
