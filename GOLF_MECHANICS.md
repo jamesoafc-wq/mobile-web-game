@@ -30,6 +30,12 @@ The tee and starting ball position have been moved higher up the screen, and max
 
 A shot timing bar now appears after aim/power is lined up. The player must tap when the moving marker is in the green sweet spot.
 
+The bar has three contact zones:
+
+- Green = sweet spot / perfect strike.
+- Yellow = middle contact / playable but not perfect.
+- Red = bad contact / reduced carry and bigger miss.
+
 The sweet spot changes per club, surface, and shot power:
 
 - Driver is harder than irons, even from the tee.
@@ -40,7 +46,9 @@ The sweet spot changes per club, surface, and shot power:
 - Rough also adds a meaningful difficulty penalty.
 - Higher power makes the timing slightly harder.
 
-Good timing gives clean carry and lower directional miss. Missing the sweet spot reduces carry and increases offline error. Bad misses can hook or slice depending on which side of the bar is missed.
+Good timing gives clean carry and lower directional miss. Missing the sweet spot reduces carry and increases offline error. Bad misses can hook or slice depending on which side of the bar is missed. Big hook/slice misses now visually curve through the air instead of only changing the launch angle.
+
+A short strike feedback badge appears after the tap so the player can see whether the shot was a sweet strike, middle contact, or a bad miss.
 
 Future customisation can improve this system by giving better clubs wider sweet spots, slower timing bars, or smaller miss penalties.
 
@@ -63,6 +71,7 @@ Carried shots now visually rise, land, bounce, then roll:
 - Driver and woods have a lower flight arc and stronger bounce/roll.
 - Irons have a medium arc.
 - Wedges have a high arc, so the ball grows more during flight and lands softer.
+- Badly mistimed hook/slice shots curve visibly during flight.
 - Putts do not change height; they stay flat and roll immediately.
 
 This is visual only for now. It improves feel without changing the main carry matrix.
@@ -119,7 +128,8 @@ The prototype uses a simple 2D model:
 - Club, surface, and power combine into a difficulty rating.
 - Harder shots have a smaller sweet spot and faster moving marker.
 - Clean timing preserves carry and reduces directional miss.
-- Poor timing reduces carry and adds hook/slice style angle error.
+- Middle contact is playable but slightly reduces carry and accuracy.
+- Poor timing reduces carry, adds hook/slice angle error, and can add visible flight curve.
 - Normal clubs fly to the final calculated carry point.
 - During flight, the ball visually scales up and back down to suggest height.
 - After landing, carried shots do a short bounce animation unless they land in sand.
