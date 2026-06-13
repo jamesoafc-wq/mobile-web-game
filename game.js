@@ -1,903 +1,572 @@
-const canvas = document.querySelector("#course");
-const ctx = canvas.getContext("2d");
-
-const strokesEl = document.querySelector("#strokes");
-const lieEl = document.querySelector("#lie");
-const clubEl = document.querySelector("#club");
-const distanceEl = document.querySelector("#distance");
-const powerEl = document.querySelector("#power");
-const hintEl = document.querySelector("#hint");
-const clubButtons = [...document.querySelectorAll("[data-club]")];
-const resetShotButton = document.querySelector("#resetShot");
-const newHoleButton = document.querySelector("#newHole");
-
-const W = canvas.width;
-const H = canvas.height;
-const YARDS_PER_PIXEL = 0.92;
-const MAX_DRAG = 105;
-const PUTTING_ZOOM = 2.35;
+const canvas = document.getElementById('course');
+const ctx = canvas.getContext('2d');
+const holeLabelEl = document.getElementById('holeLabel');
+const strokesEl = document.getElementById('strokes');
+const lieEl = document.getElementById('lie');
+const clubEl = document.getElementById('club');
+const distanceEl = document.getElementById('distance');
+const powerEl = document.getElementById('power');
+const hintEl = document.getElementById('hint');
+const resetShotButton = document.getElementById('resetShot');
+const newHoleButton = document.getElementById('newHole');
+const clubButtons = [...document.querySelectorAll('.club-panel button')];
 
 const clubs = {
-  driver: {
-    name: "Driver",
-    short: "DR",
-    accuracy: 10,
-    type: "full",
-    rollBias: 1.2,
-    flightHeight: 0.34,
-    bouncePower: 1,
-    carry: { tee: 285, fairway: 225, rough: 70, sand: 0, green: 25 }
-  },
-  wood3: {
-    name: "3 Wood",
-    short: "3W",
-    accuracy: 8,
-    type: "full",
-    rollBias: 1.05,
-    flightHeight: 0.42,
-    bouncePower: 0.9,
-    carry: { tee: 245, fairway: 215, rough: 90, sand: 0, green: 22 }
-  },
-  iron5: {
-    name: "5 Iron",
-    short: "5I",
-    accuracy: 6,
-    type: "full",
-    rollBias: 0.72,
-    flightHeight: 0.58,
-    bouncePower: 0.72,
-    carry: { tee: 185, fairway: 175, rough: 125, sand: 35, green: 18 }
-  },
-  iron7: {
-    name: "7 Iron",
-    short: "7I",
-    accuracy: 4.8,
-    type: "full",
-    rollBias: 0.52,
-    flightHeight: 0.72,
-    bouncePower: 0.6,
-    carry: { tee: 155, fairway: 145, rough: 110, sand: 45, green: 16 }
-  },
-  wedgeP: {
-    name: "Pitching Wedge",
-    short: "PW",
-    accuracy: 3.7,
-    type: "full",
-    rollBias: 0.3,
-    flightHeight: 1.08,
-    bouncePower: 0.42,
-    carry: { tee: 108, fairway: 102, rough: 82, sand: 55, green: 12 }
-  },
-  wedgeS: {
-    name: "Sand Wedge",
-    short: "SW",
-    accuracy: 4.2,
-    type: "full",
-    rollBias: 0.18,
-    flightHeight: 1.22,
-    bouncePower: 0.28,
-    carry: { tee: 84, fairway: 78, rough: 62, sand: 70, green: 10 }
-  },
-  putter: {
-    name: "Putter",
-    short: "PT",
-    accuracy: 1.2,
-    type: "putt",
-    rollBias: 1,
-    flightHeight: 0,
-    bouncePower: 0,
-    carry: { tee: 24, fairway: 22, rough: 8, sand: 0, green: 45 }
-  }
+  driver: { short: 'Driver', type: 'full', accuracy: 12, flightHeight: 0.28, rollBias: 1.1, carry: { tee: 285, fairway: 45, rough: 15, sand: 0, fringe: 8, green: 8 } },
+  wood3: { short: '3W', type: 'full', accuracy: 10.5, flightHeight: 0.24, rollBias: 1.02, carry: { tee: 245, fairway: 75, rough: 25, sand: 0, fringe: 10, green: 10 } },
+  iron5: { short: '5I', type: 'full', accuracy: 7.4, flightHeight: 0.22, rollBias: 0.88, carry: { tee: 185, fairway: 175, rough: 125, sand: 35, fringe: 18, green: 18 } },
+  iron7: { short: '7I', type: 'full', accuracy: 6.2, flightHeight: 0.24, rollBias: 0.78, carry: { tee: 155, fairway: 145, rough: 110, sand: 45, fringe: 16, green: 16 } },
+  wedgeP: { short: 'PW', type: 'full', accuracy: 5.2, flightHeight: 0.3, rollBias: 0.48, carry: { tee: 108, fairway: 102, rough: 82, sand: 55, fringe: 12, green: 12 } },
+  wedgeS: { short: 'SW', type: 'full', accuracy: 6.6, flightHeight: 0.34, rollBias: 0.24, carry: { tee: 84, fairway: 78, rough: 62, sand: 70, fringe: 10, green: 10 } },
+  putter: { short: 'Putter', type: 'putt', accuracy: 2.5, flightHeight: 0, rollBias: 1, carry: { tee: 24, fairway: 22, rough: 8, sand: 0, fringe: 26, green: 45 } }
 };
 
-const surfaces = {
-  tee: { label: "Tee", accuracy: 1, friction: 0.982, roll: 0.13, bounce: 0.75 },
-  fairway: { label: "Fairway", accuracy: 1, friction: 0.982, roll: 0.16, bounce: 0.85 },
-  rough: { label: "Rough", accuracy: 1.65, friction: 0.955, roll: 0.055, bounce: 0.4 },
-  sand: { label: "Sand", accuracy: 2.15, friction: 0.92, roll: 0.012, bounce: 0.12 },
-  green: { label: "Green", accuracy: 0.78, friction: 0.988, roll: 0.24, bounce: 0.45 },
-  water: { label: "Water", accuracy: 10, friction: 0.85, roll: 0, bounce: 0 }
+const surfaceLabels = {
+  tee: 'Tee', fairway: 'Fairway', rough: 'Rough', fringe: 'Fringe', green: 'Green', sand: 'Bunker', water: 'Water'
 };
 
-const course = {
-  tee: { x: 198, y: 556, w: 84, h: 45 },
-  fairway: [
-    { x: 230, y: 620 },
-    { x: 326, y: 582 },
-    { x: 356, y: 508 },
-    { x: 316, y: 420 },
-    { x: 254, y: 336 },
-    { x: 288, y: 238 },
-    { x: 315, y: 145 },
-    { x: 256, y: 82 },
-    { x: 175, y: 126 },
-    { x: 164, y: 226 },
-    { x: 190, y: 327 },
-    { x: 126, y: 429 },
-    { x: 151, y: 535 }
-  ],
-  green: { x: 246, y: 86, rx: 76, ry: 53 },
-  hole: { x: 252, y: 82, r: 7 },
-  water: { x: 362, y: 430, rx: 58, ry: 76, rotation: -0.1 },
-  bunkers: [
-    { x: 164, y: 94, rx: 43, ry: 24, rotation: -0.38 },
-    { x: 326, y: 116, rx: 45, ry: 24, rotation: 0.32 },
-    { x: 118, y: 399, rx: 42, ry: 29, rotation: 0.18 }
-  ],
-  trees: [
-    { x: 64, y: 112 }, { x: 92, y: 174 }, { x: 393, y: 152 }, { x: 414, y: 224 },
-    { x: 61, y: 290 }, { x: 84, y: 510 }, { x: 405, y: 585 }, { x: 384, y: 658 }
-  ]
+const rollFriction = {
+  rough: 0.972,
+  fairway: 0.982,
+  tee: 0.982,
+  fringe: 0.973,
+  green: 0.989,
+  sand: 0.72,
+  water: 1
 };
 
-const ball = {
-  x: 240,
-  y: 579,
-  vx: 0,
-  vy: 0,
-  r: 6,
-  visualScale: 1,
-  moving: false,
-  holed: false,
-  flight: null,
-  bounce: null
+const clubDifficulty = {
+  driver: 0.92,
+  wood3: 0.82,
+  iron5: 0.44,
+  iron7: 0.34,
+  wedgeP: 0.38,
+  wedgeS: 0.58,
+  putter: 0.24
 };
 
-let selectedClub = "driver";
+const surfaceDifficulty = {
+  tee: 0.02,
+  fairway: 0.12,
+  rough: 0.38,
+  sand: 0.62,
+  fringe: 0.12,
+  green: 0.08,
+  water: 1
+};
+
+const hole = HOLES[0];
+let selectedClub = 'driver';
 let strokes = 0;
-let message = "Pull back from the ball, aim, then release.";
-let previousSafe = { x: ball.x, y: ball.y };
-let lastSafe = { x: ball.x, y: ball.y };
+let message = 'Play the hole.';
+let ball;
+let lastSafe;
 let drag = null;
+let pendingShot = null;
+let skillFeedback = null;
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
+function resetHole() {
+  strokes = 0;
+  ball = {
+    x: hole.start.x,
+    y: hole.start.y,
+    vx: 0,
+    vy: 0,
+    moving: false,
+    flight: null,
+    holed: false,
+    visualScale: 1,
+    radius: 4.6,
+    prevX: hole.start.x,
+    prevY: hole.start.y
+  };
+  lastSafe = { x: ball.x, y: ball.y };
+  drag = null;
+  pendingShot = null;
+  skillFeedback = null;
+  selectedClub = 'driver';
+  message = 'Pull back from the ball to line up your tee shot.';
+  updateClubButtons();
+  updateHud();
 }
 
-function degreesToRadians(value) {
-  return (value * Math.PI) / 180;
+function getLie() {
+  return getSurfaceAtPoint(hole, ball.x, ball.y);
 }
 
-function distance(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+function getDistanceToCupYards() {
+  return Math.round(dist(ball.x, ball.y, hole.cup.x, hole.cup.y) * YARDS_PER_PIXEL);
 }
 
-function pointInRect(point, rect) {
-  return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
-}
-
-function pointInPolygon(point, polygon) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x;
-    const yi = polygon[i].y;
-    const xj = polygon[j].x;
-    const yj = polygon[j].y;
-    const intersect = yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-function pointInEllipse(point, ellipse) {
-  const rotation = ellipse.rotation || 0;
-  const cos = Math.cos(rotation);
-  const sin = Math.sin(rotation);
-  const dx = point.x - ellipse.x;
-  const dy = point.y - ellipse.y;
-  const localX = dx * cos + dy * sin;
-  const localY = -dx * sin + dy * cos;
-  return (localX * localX) / (ellipse.rx * ellipse.rx) + (localY * localY) / (ellipse.ry * ellipse.ry) <= 1;
-}
-
-function surfaceAt(x, y) {
-  const point = { x, y };
-  if (x < 0 || x > W || y < 0 || y > H) return "water";
-  if (pointInEllipse(point, course.water)) return "water";
-  if (pointInEllipse(point, course.green)) return "green";
-  if (course.bunkers.some((bunker) => pointInEllipse(point, bunker))) return "sand";
-  if (pointInRect(point, course.tee)) return "tee";
-  if (pointInPolygon(point, course.fairway)) return "fairway";
-  return "rough";
-}
-
-function getMaxCarry(clubKey = selectedClub, surfaceKey = surfaceAt(ball.x, ball.y)) {
-  return clubs[clubKey].carry[surfaceKey] ?? 0;
-}
-
-function getCurrentPower() {
-  if (!drag) return 0;
-  return clamp(distance(ball, drag) / MAX_DRAG, 0, 1);
+function getMaxCarry(clubKey, lie) {
+  return clubs[clubKey].carry[lie] ?? clubs[clubKey].carry.fairway ?? 0;
 }
 
 function isPuttingView() {
-  return selectedClub === "putter" && surfaceAt(ball.x, ball.y) === "green" && !ball.holed;
+  const lie = getLie();
+  return selectedClub === 'putter' && (lie === 'green' || lie === 'fringe') && !ball.holed;
 }
 
 function getCamera() {
   if (!isPuttingView()) return { zoom: 1, tx: 0, ty: 0 };
-
-  const centerX = ball.x * 0.42 + course.hole.x * 0.58;
-  const centerY = ball.y * 0.42 + course.hole.y * 0.58;
-  const zoom = PUTTING_ZOOM;
-  const tx = clamp(W / 2 - centerX * zoom, W - W * zoom, 0);
-  const ty = clamp(H / 2 - centerY * zoom, H - H * zoom, 0);
-  return { zoom, tx, ty };
-}
-
-function screenToWorld(screenPoint) {
-  const camera = getCamera();
+  const targetX = lerp(ball.x, hole.cup.x, 0.3);
+  const targetY = lerp(ball.y, hole.cup.y, 0.35);
+  const zoom = 1.68;
   return {
-    x: clamp((screenPoint.x - camera.tx) / camera.zoom, 0, W),
-    y: clamp((screenPoint.y - camera.ty) / camera.zoom, 0, H)
+    zoom,
+    tx: canvas.width / 2 - targetX * zoom,
+    ty: canvas.height * 0.56 - targetY * zoom
   };
 }
 
-function drawEllipse(shape, fillStyle, strokeStyle = null, lineWidth = 1) {
-  ctx.save();
-  ctx.translate(shape.x, shape.y);
-  ctx.rotate(shape.rotation || 0);
-  ctx.beginPath();
-  ctx.ellipse(0, 0, shape.rx, shape.ry, 0, 0, Math.PI * 2);
-  ctx.fillStyle = fillStyle;
-  ctx.fill();
-  if (strokeStyle) {
-    ctx.strokeStyle = strokeStyle;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-  }
-  ctx.restore();
+function updateClubButtons() {
+  clubButtons.forEach(btn => btn.classList.toggle('selected', btn.dataset.club === selectedClub));
 }
 
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+function updateHud() {
+  holeLabelEl.textContent = `${hole.name} · Par ${hole.par}`;
+  strokesEl.textContent = String(strokes);
+  lieEl.textContent = surfaceLabels[getLie()];
+  clubEl.textContent = clubs[selectedClub].short;
+  distanceEl.textContent = `${getDistanceToCupYards()} yd`;
+  if (drag) powerEl.textContent = `${Math.round(drag.power * 100)}%`;
+  else if (pendingShot) powerEl.textContent = `Timing`;
+  else powerEl.textContent = '0%';
+  hintEl.textContent = message;
 }
 
-function drawCourse() {
-  ctx.clearRect(0, 0, W, H);
-
-  ctx.fillStyle = "#2f6b28";
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.strokeStyle = "#163612";
-  ctx.lineWidth = 8;
-  for (let y = -20; y < H + 40; y += 36) {
-    ctx.beginPath();
-    ctx.moveTo(-20, y);
-    ctx.lineTo(W + 20, y + 24);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  ctx.beginPath();
-  course.fairway.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
-  });
-  ctx.closePath();
-  ctx.fillStyle = "#69b856";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.15)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  drawEllipse(course.green, "#86d56d", "rgba(255,255,255,0.25)", 2);
-
-  course.bunkers.forEach((bunker) => {
-    drawEllipse(bunker, "#dcc479", "rgba(84, 66, 24, 0.28)", 2);
-  });
-
-  drawEllipse(course.water, "#3c89c9", "rgba(207,238,255,0.4)", 2);
-
-  ctx.fillStyle = "#75d064";
-  roundRect(course.tee.x, course.tee.y, course.tee.w, course.tee.h, 10);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.22)";
-  ctx.stroke();
-
-  drawTrees();
-  drawCup();
-}
-
-function drawTrees() {
-  for (const tree of course.trees) {
-    ctx.fillStyle = "#174d1c";
-    ctx.beginPath();
-    ctx.arc(tree.x, tree.y, 17, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#0f3513";
-    ctx.beginPath();
-    ctx.arc(tree.x + 5, tree.y + 3, 11, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawCup() {
-  const { x, y, r } = course.hole;
-  ctx.strokeStyle = "#f7f7f7";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x, y - 32);
-  ctx.stroke();
-
-  ctx.fillStyle = "#f44848";
-  ctx.beginPath();
-  ctx.moveTo(x, y - 32);
-  ctx.lineTo(x + 22, y - 24);
-  ctx.lineTo(x, y - 17);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "#111";
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawBall() {
-  if (ball.holed) return;
-
-  const scale = ball.visualScale || 1;
-  const radius = ball.r * scale;
-  const shadowScale = clamp(1 / scale, 0.48, 1);
-
-  ctx.save();
-  ctx.globalAlpha = 0.32;
-  ctx.fillStyle = "#000";
-  ctx.beginPath();
-  ctx.ellipse(ball.x + 2, ball.y + 7 + (scale - 1) * 8, ball.r * 1.25 * shadowScale, ball.r * 0.52 * shadowScale, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = 8 + (scale - 1) * 12;
-  ctx.shadowOffsetY = 2;
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.arc(ball.x, ball.y, radius, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "rgba(190, 210, 255, 0.38)";
-  ctx.beginPath();
-  ctx.arc(ball.x - radius * 0.25, ball.y - radius * 0.25, Math.max(1.4, radius * 0.28), 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawAim() {
-  if (!drag || ball.moving || ball.holed) return;
-
-  const surfaceKey = surfaceAt(ball.x, ball.y);
-  const maxCarryYards = getMaxCarry(selectedClub, surfaceKey);
-  const power = getCurrentPower();
-  const pullX = ball.x - drag.x;
-  const pullY = ball.y - drag.y;
-  const pullDistance = Math.hypot(pullX, pullY);
-  if (pullDistance < 4) return;
-
-  const club = clubs[selectedClub];
-  const angle = Math.atan2(pullY, pullX);
-  const carryYards = maxCarryYards * power;
-  const lineLength = carryYards / YARDS_PER_PIXEL;
-  const targetX = ball.x + Math.cos(angle) * lineLength;
-  const targetY = ball.y + Math.sin(angle) * lineLength;
-
-  ctx.save();
-
-  if (maxCarryYards <= 0) {
-    ctx.strokeStyle = "rgba(255, 105, 105, 0.92)";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, 26, 0, Math.PI * 2);
-    ctx.stroke();
-  } else {
-    ctx.setLineDash([10, 8]);
-    ctx.lineWidth = club.type === "putt" ? 2.5 : 4;
-    ctx.strokeStyle = club.type === "putt" ? "rgba(255,245,170,0.9)" : "rgba(255,255,255,0.82)";
-    ctx.beginPath();
-    ctx.moveTo(ball.x, ball.y);
-    ctx.lineTo(targetX, targetY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.beginPath();
-    ctx.arc(targetX, targetY, club.type === "putt" ? 4 : 8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.beginPath();
-  ctx.arc(drag.x, drag.y, 10 + power * 8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawScreenHud() {
-  const surfaceKey = surfaceAt(ball.x, ball.y);
-  const club = clubs[selectedClub];
-  const maxCarry = getMaxCarry(selectedClub, surfaceKey);
-  const label = club.type === "putt" ? "Roll" : "Carry";
-
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-  if (isPuttingView()) {
-    ctx.fillStyle = "rgba(9, 22, 9, 0.78)";
-    roundRect(14, 14, 122, 30, 15);
-    ctx.fill();
-    ctx.fillStyle = "#fff7a8";
-    ctx.font = "800 13px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillText("Green zoom", 75, 34);
-  }
-
-  if (!drag || ball.moving || ball.holed) {
-    ctx.restore();
-    return;
-  }
-
-  const power = getCurrentPower();
-  const projected = Math.round(maxCarry * power);
-  const text = maxCarry > 0
-    ? `${club.short} · ${label} ${projected}y / ${maxCarry}y · ${Math.round(power * 100)}%`
-    : `${club.short} · No playable shot from ${surfaces[surfaceKey].label}`;
-
-  const panelW = 330;
-  const panelX = (W - panelW) / 2;
-  ctx.fillStyle = "rgba(8, 18, 7, 0.86)";
-  roundRect(panelX, H - 64, panelW, 40, 20);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.16)";
-  ctx.stroke();
-
-  ctx.fillStyle = "#fff";
-  ctx.font = "800 15px system-ui";
-  ctx.textAlign = "center";
-  ctx.fillText(text, W / 2, H - 39);
-  ctx.restore();
-}
-
-function draw() {
-  const camera = getCamera();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, W, H);
-
-  ctx.save();
-  ctx.setTransform(camera.zoom, 0, 0, camera.zoom, camera.tx, camera.ty);
-  drawCourse();
-  drawAim();
-  drawBall();
-  ctx.restore();
-
-  drawScreenHud();
-
-  if (ball.holed) {
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "rgba(0,0,0,0.48)";
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.font = "800 34px system-ui";
-    ctx.fillText("Holed out!", W / 2, H / 2 - 12);
-    ctx.font = "600 18px system-ui";
-    ctx.fillText(`Score: ${strokes} strokes`, W / 2, H / 2 + 24);
-    ctx.restore();
-  }
-}
-
-function hitShot(pointer) {
-  if (!drag || ball.moving || ball.holed) return;
-
-  const pullX = ball.x - pointer.x;
-  const pullY = ball.y - pointer.y;
-  const pullDistance = Math.hypot(pullX, pullY);
-  const power = clamp(pullDistance / MAX_DRAG, 0, 1);
-
-  drag = null;
-
-  if (power < 0.06) {
-    message = "Small pull cancelled. Pull farther back to hit the ball.";
-    updateHud();
-    return;
-  }
-
-  const surfaceKey = surfaceAt(ball.x, ball.y);
-  const surface = surfaces[surfaceKey];
-  const club = clubs[selectedClub];
-  const maxCarryYards = getMaxCarry(selectedClub, surfaceKey);
-
-  if (maxCarryYards <= 0) {
-    message = `${club.name} has no playable distance from ${surface.label}. Choose another club.`;
-    updateHud();
-    return;
-  }
-
-  previousSafe = { x: ball.x, y: ball.y };
-
-  const baseAngle = Math.atan2(pullY, pullX);
-  const random = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
-  const missAngle = degreesToRadians(random * club.accuracy * surface.accuracy * (0.35 + power));
-  const angle = baseAngle + missAngle;
-
+function applyPenalty(text) {
   strokes += 1;
-
-  if (club.type === "putt") {
-    const rollYards = maxCarryYards * power;
-    launchRoll(angle, rollYards, surfaceKey);
-    message = `Putter from ${surface.label}. Max roll here: ${maxCarryYards} yd.`;
-    updateHud();
-    return;
-  }
-
-  const carryYards = maxCarryYards * power;
-  const carryPixels = carryYards / YARDS_PER_PIXEL;
-  const landingX = ball.x + Math.cos(angle) * carryPixels;
-  const landingY = ball.y + Math.sin(angle) * carryPixels;
-
-  ball.moving = true;
+  ball.x = lastSafe.x;
+  ball.y = lastSafe.y;
+  ball.vx = 0;
+  ball.vy = 0;
+  ball.moving = false;
+  ball.flight = null;
   ball.visualScale = 1;
-  ball.bounce = null;
-  ball.flight = {
-    startX: ball.x,
-    startY: ball.y,
-    landingX,
-    landingY,
-    progress: 0,
-    duration: clamp(18 + carryPixels / 8, 20, 58),
-    angle,
-    carryYards,
-    clubKey: selectedClub,
-    height: club.flightHeight
-  };
-
-  message = `${club.name} from ${surface.label}. Carry target: ${Math.round(carryYards)} yd.`;
+  ball.prevX = ball.x;
+  ball.prevY = ball.y;
+  message = text;
   updateHud();
 }
 
-function launchRoll(angle, rollYards, surfaceKey) {
-  const surface = surfaces[surfaceKey];
-  const rollPixels = Math.max(0, rollYards / YARDS_PER_PIXEL);
-  const initialSpeed = rollPixels * (1 - surface.friction) * 1.35;
-
-  ball.vx = Math.cos(angle) * initialSpeed;
-  ball.vy = Math.sin(angle) * initialSpeed;
-  ball.visualScale = 1;
-  ball.moving = true;
-  ball.flight = null;
-  ball.bounce = null;
+function getCupCaptureRadius() {
+  const speed = Math.hypot(ball.vx, ball.vy);
+  const putting = isPuttingView();
+  if (!putting) return 1.4;
+  if (speed > 0.58) return 0.6;
+  if (speed > 0.28) return 2.8;
+  return 6.2;
 }
 
-function startLandingBounce(shot, landingSurfaceKey, rollYards) {
-  const landingSurface = surfaces[landingSurfaceKey];
-  const club = clubs[shot.clubKey];
-  const bounceStrength = club.bouncePower * landingSurface.bounce;
-
-  if (bounceStrength <= 0.04) {
-    return false;
+function maybeHoleOut() {
+  const radius = getCupCaptureRadius();
+  const d = dist(ball.x, ball.y, hole.cup.x, hole.cup.y);
+  if (d <= radius) {
+    ball.holed = true;
+    ball.moving = false;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.flight = null;
+    ball.x = hole.cup.x;
+    ball.y = hole.cup.y;
+    message = `Holed out in ${strokes} ${strokes === 1 ? 'stroke' : 'strokes'}!`;
+    updateHud();
+    return true;
   }
-
-  ball.bounce = {
-    startX: ball.x,
-    startY: ball.y,
-    angle: shot.angle,
-    rollYards,
-    surfaceKey: landingSurfaceKey,
-    progress: 0,
-    duration: clamp(14 + bounceStrength * 16, 12, 28),
-    visualAmp: clamp(0.08 + club.flightHeight * 0.12, 0.08, 0.24) * landingSurface.bounce,
-    forwardPixels: clamp(6 + shot.carryYards * 0.025 * bounceStrength, 4, 18)
-  };
-  return true;
+  return false;
 }
 
-function updateBounce() {
-  if (!ball.bounce) return false;
-
-  const bounce = ball.bounce;
-  bounce.progress += 1;
-  const t = clamp(bounce.progress / bounce.duration, 0, 1);
-  const forward = bounce.forwardPixels * t;
-  const bounceWave = Math.abs(Math.sin(t * Math.PI * 3)) * (1 - t);
-
-  ball.x = bounce.startX + Math.cos(bounce.angle) * forward;
-  ball.y = bounce.startY + Math.sin(bounce.angle) * forward;
-  ball.visualScale = 1 + bounce.visualAmp * bounceWave;
-
-  if (surfaceAt(ball.x, ball.y) === "water") {
-    ball.bounce = null;
-    takePenalty("Water hazard. One-stroke penalty and ball returned to previous lie.");
-    return true;
-  }
-
-  if (t < 1) return true;
-
-  const finalSurfaceKey = surfaceAt(ball.x, ball.y);
-  if (finalSurfaceKey === "water") {
-    ball.bounce = null;
-    takePenalty("Water hazard. One-stroke penalty and ball returned to previous lie.");
-    return true;
-  }
-
-  ball.visualScale = 1;
-  ball.bounce = null;
-
-  if (bounce.rollYards < 1) {
+function stopBallOnGreenIfSlow() {
+  if (!ball.moving || ball.holed || ball.flight) return;
+  const lie = getLie();
+  if (lie !== 'green' && lie !== 'fringe') return;
+  const speed = Math.hypot(ball.vx, ball.vy);
+  if (speed < 0.052) {
     ball.vx = 0;
     ball.vy = 0;
     ball.moving = false;
     lastSafe = { x: ball.x, y: ball.y };
-    updateSuggestedClub(finalSurfaceKey);
-    message = `Landed on ${surfaces[finalSurfaceKey].label}. Almost no extra roll.`;
+    message = 'Ball has settled on the green.';
     updateHud();
-    return true;
+  } else if (speed < 0.095) {
+    ball.vx *= 0.76;
+    ball.vy *= 0.76;
+  }
+}
+
+function startSkillShot(pointer) {
+  if (!drag || ball.moving || ball.holed || pendingShot) return;
+  const pullX = ball.x - pointer.x;
+  const pullY = ball.y - pointer.y;
+  const power = clamp(Math.hypot(pullX, pullY) / 120, 0, 1);
+  drag = null;
+  if (power < 0.06) {
+    message = 'Pull farther back to take a shot.';
+    updateHud();
+    return;
+  }
+  const lie = getLie();
+  const maxCarry = getMaxCarry(selectedClub, lie);
+  if (maxCarry <= 0) {
+    message = `${clubs[selectedClub].short} is not usable from ${surfaceLabels[lie]}.`;
+    updateHud();
+    return;
+  }
+  const difficulty = clamp((clubDifficulty[selectedClub] ?? 0.5) + (surfaceDifficulty[lie] ?? 0.2) + power * 0.18, 0.08, 1);
+  pendingShot = {
+    power,
+    baseAngle: Math.atan2(pullY, pullX),
+    lie,
+    clubKey: selectedClub,
+    maxCarry,
+    difficulty,
+    sweetWidth: clamp(0.34 - difficulty * 0.24, 0.07, 0.31),
+    startedAt: performance.now(),
+    speed: 0.72 + difficulty * 1.05
+  };
+  message = `${clubs[selectedClub].short} from ${surfaceLabels[lie]}: tap the strike marker in the green zone.`;
+  updateHud();
+}
+
+function getSkillMarkerPosition() {
+  if (!pendingShot) return 0.5;
+  const elapsed = (performance.now() - pendingShot.startedAt) / 1000;
+  const phase = (elapsed * pendingShot.speed) % 2;
+  return phase <= 1 ? phase : 2 - phase;
+}
+
+function resolveSkillShot() {
+  if (!pendingShot) return;
+  const marker = getSkillMarkerPosition();
+  const halfSweet = pendingShot.sweetWidth / 2;
+  const middleWidth = clamp(pendingShot.sweetWidth + 0.28 - pendingShot.difficulty * 0.06, pendingShot.sweetWidth + 0.14, 0.48);
+  const halfMiddle = middleWidth / 2;
+  const error = marker - 0.5;
+  const absError = Math.abs(error);
+  const side = Math.sign(error) || 1;
+  let zone = 'sweet';
+  let label = 'Perfect strike';
+  let carryMultiplier = 1;
+  let angleOffsetDeg = 0;
+  let curvePixels = 0;
+  if (absError <= halfSweet) {
+    zone = 'sweet'; label = 'Perfect strike';
+  } else if (absError <= halfMiddle) {
+    zone = 'middle';
+    const middleMiss = clamp((absError - halfSweet) / Math.max(0.01, halfMiddle - halfSweet), 0, 1);
+    label = 'Good contact';
+    carryMultiplier = clamp(0.98 - middleMiss * 0.08, 0.9, 0.98);
+    angleOffsetDeg = side * (1 + middleMiss * 2.4 + pendingShot.difficulty * 1.2);
+    curvePixels = side * middleMiss * pendingShot.difficulty * 7;
+  } else {
+    zone = 'bad';
+    const badMiss = clamp((absError - halfMiddle) / Math.max(0.01, 0.5 - halfMiddle), 0, 1);
+    label = badMiss > 0.55 ? (side < 0 ? 'Hooked it' : 'Sliced it') : 'Poor contact';
+    carryMultiplier = clamp(1 - badMiss * (0.18 + pendingShot.difficulty * 0.22), 0.58, 0.88);
+    angleOffsetDeg = side * (2.5 + badMiss * 7 + pendingShot.difficulty * 4);
+    curvePixels = side * (12 + badMiss * 44 + pendingShot.difficulty * 20);
   }
 
-  launchRoll(bounce.angle, bounce.rollYards, finalSurfaceKey);
-  message = `Bounced on ${surfaces[finalSurfaceKey].label}. Extra roll: ${Math.round(bounce.rollYards)} yd.`;
+  const club = clubs[pendingShot.clubKey];
+  const random = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
+  const lieFactor = surfaceDifficulty[pendingShot.lie] ?? 0.2;
+  const randomOffset = radians(random * club.accuracy * (0.35 + pendingShot.power) * (0.7 + lieFactor));
+  const angle = pendingShot.baseAngle + randomOffset + radians(angleOffsetDeg);
+  const carryYards = pendingShot.maxCarry * pendingShot.power * carryMultiplier;
+
+  skillFeedback = { label, zone, startedAt: performance.now() };
+  strokes += 1;
+  const carryPixels = carryYards / YARDS_PER_PIXEL;
+  lastSafe = { x: ball.x, y: ball.y };
+
+  if (club.type === 'putt') {
+    const speed = carryPixels * 0.1;
+    ball.vx = Math.cos(angle) * speed;
+    ball.vy = Math.sin(angle) * speed;
+    ball.moving = true;
+    ball.flight = null;
+    message = `${label}. Putt for ${Math.round(carryYards)} yd.`;
+  } else {
+    ball.moving = true;
+    ball.flight = {
+      startX: ball.x,
+      startY: ball.y,
+      endX: ball.x + Math.cos(angle) * carryPixels,
+      endY: ball.y + Math.sin(angle) * carryPixels,
+      angle,
+      progress: 0,
+      duration: clamp(20 + carryPixels / 7, 20, 60),
+      carryYards,
+      curvePixels,
+      height: club.flightHeight,
+      clubKey: pendingShot.clubKey
+    };
+    message = `${label}. Carry ${Math.round(carryYards)} yd.`;
+  }
+  pendingShot = null;
   updateHud();
-  return true;
+}
+
+function startLandingRoll(angle, lie, carryYards, clubKey) {
+  const club = clubs[clubKey];
+  if (lie === 'water') {
+    applyPenalty('Water hazard. One-stroke penalty.');
+    return;
+  }
+  if (lie === 'sand') {
+    ball.moving = false;
+    ball.vx = 0;
+    ball.vy = 0;
+    message = 'Plugged in the bunker. Almost no bounce or roll.';
+    updateHud();
+    return;
+  }
+  const rollYards = carryYards * (club.rollBias || 0.5) * ({ tee: 0.22, fairway: 0.2, rough: 0.06, fringe: 0.08, green: 0.03 }[lie] ?? 0.08) * (0.85 + Math.random() * 0.3);
+  const speed = (rollYards / YARDS_PER_PIXEL) * 0.11;
+  ball.vx = Math.cos(angle) * speed;
+  ball.vy = Math.sin(angle) * speed;
+  ball.moving = true;
 }
 
 function updateFlight() {
-  if (!ball.flight) return false;
-
+  if (!ball.flight) return;
   const shot = ball.flight;
   shot.progress += 1;
   const t = clamp(shot.progress / shot.duration, 0, 1);
   const ease = 1 - Math.pow(1 - t, 2);
   const arc = Math.sin(t * Math.PI);
-
-  ball.x = shot.startX + (shot.landingX - shot.startX) * ease;
-  ball.y = shot.startY + (shot.landingY - shot.startY) * ease;
+  const baseX = lerp(shot.startX, shot.endX, ease);
+  const baseY = lerp(shot.startY, shot.endY, ease);
+  const curveOffset = (shot.curvePixels || 0) * Math.sin(t * Math.PI);
+  const perpX = -Math.sin(shot.angle);
+  const perpY = Math.cos(shot.angle);
+  ball.x = baseX + perpX * curveOffset;
+  ball.y = baseY + perpY * curveOffset;
   ball.visualScale = 1 + arc * shot.height;
-
-  if (t < 1) return true;
-
-  ball.flight = null;
-  ball.visualScale = 1;
-
-  const landingSurfaceKey = surfaceAt(ball.x, ball.y);
-  if (landingSurfaceKey === "water") {
-    takePenalty("Water hazard. One-stroke penalty and ball returned to previous lie.");
-    return true;
+  if (t >= 1) {
+    ball.flight = null;
+    ball.visualScale = 1;
+    startLandingRoll(shot.angle, getLie(), shot.carryYards, shot.clubKey);
   }
-
-  const landingSurface = surfaces[landingSurfaceKey];
-  const club = clubs[shot.clubKey];
-  const bounceLuck = 0.75 + Math.random() * 0.45;
-  const rollYards = shot.carryYards * landingSurface.roll * club.rollBias * bounceLuck;
-
-  if (startLandingBounce(shot, landingSurfaceKey, rollYards)) {
-    message = `Landed on ${landingSurface.label}.`;
-    updateHud();
-    return true;
-  }
-
-  if (rollYards < 1) {
-    ball.vx = 0;
-    ball.vy = 0;
-    ball.moving = false;
-    lastSafe = { x: ball.x, y: ball.y };
-    updateSuggestedClub(landingSurfaceKey);
-    message = `Landed on ${landingSurface.label}. Almost no extra roll.`;
-    updateHud();
-    return true;
-  }
-
-  launchRoll(shot.angle, rollYards, landingSurfaceKey);
-  message = `Landed on ${landingSurface.label}. Extra roll: ${Math.round(rollYards)} yd.`;
-  updateHud();
-  return true;
 }
 
-function updateBall() {
-  if (!ball.moving || ball.holed) return;
-
-  if (updateFlight()) return;
-  if (updateBounce()) return;
-
-  ball.visualScale = 1;
+function updateRoll() {
+  if (!ball.moving || ball.flight || ball.holed) return;
+  ball.prevX = ball.x;
+  ball.prevY = ball.y;
   ball.x += ball.vx;
   ball.y += ball.vy;
-
-  const surfaceKey = surfaceAt(ball.x, ball.y);
-
-  if (surfaceKey === "water") {
-    takePenalty("Water hazard. One-stroke penalty and ball returned to previous lie.");
+  const lie = getLie();
+  if (lie === 'water') {
+    applyPenalty('Water hazard. One-stroke penalty.');
     return;
   }
-
-  const surface = surfaces[surfaceKey];
-  ball.vx *= surface.friction;
-  ball.vy *= surface.friction;
-
-  const speed = Math.hypot(ball.vx, ball.vy);
-  const distToCup = distance(ball, course.hole);
-
-  if (surfaceKey === "green" && distToCup <= course.hole.r + 5 && speed < 1.25) {
-    ball.holed = true;
-    ball.moving = false;
+  if (lie === 'sand') {
     ball.vx = 0;
     ball.vy = 0;
-    ball.visualScale = 1;
-    message = `Holed out in ${strokes}.`;
+    ball.moving = false;
+    message = 'Ball stopped in the bunker.';
     updateHud();
     return;
   }
-
-  if (speed < 0.045) {
+  if (lie === 'green' || lie === 'fringe') {
+    const slope = getGreenSlopeAt(hole, ball.x, ball.y);
+    const speed = Math.hypot(ball.vx, ball.vy);
+    if (speed > 0.052 && slope.strength > 0.00004) {
+      const breakForce = clamp(0.62 - speed * 0.32, 0.16, 0.64);
+      ball.vx += slope.x * breakForce;
+      ball.vy += slope.y * breakForce;
+    }
+  }
+  const friction = rollFriction[lie] ?? 0.98;
+  ball.vx *= friction;
+  ball.vy *= friction;
+  if (maybeHoleOut()) return;
+  stopBallOnGreenIfSlow();
+  if (Math.hypot(ball.vx, ball.vy) < 0.025 && !ball.holed) {
     ball.vx = 0;
     ball.vy = 0;
-    ball.visualScale = 1;
     ball.moving = false;
     lastSafe = { x: ball.x, y: ball.y };
-    updateSuggestedClub(surfaceKey);
-    message = nextLieMessage(surfaceKey);
-    updateHud();
   }
 }
 
-function takePenalty(text) {
-  strokes += 1;
-  ball.x = previousSafe.x;
-  ball.y = previousSafe.y;
-  ball.vx = 0;
-  ball.vy = 0;
-  ball.visualScale = 1;
-  ball.moving = false;
-  ball.flight = null;
-  ball.bounce = null;
-  message = text;
-  updateHud();
+function drawBall() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(ball.x, ball.y + 5, ball.radius * 1.1, ball.radius * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius * ball.visualScale, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.16)';
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.beginPath();
+  ctx.arc(ball.x - 1.3, ball.y - 1.6, Math.max(1.3, ball.radius * 0.24), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
-function nextLieMessage(surfaceKey) {
-  if (surfaceKey === "green") return "On the green. Green zoom and putter selected.";
-  if (surfaceKey === "sand") return "In the bunker. Sand wedge is usually safest; Driver and 3W have no carry here.";
-  if (surfaceKey === "rough") return "In the rough. Longer clubs lose a lot of carry and accuracy here.";
-  if (surfaceKey === "fairway") return "Fairway lie. Full clubs carry much better from here.";
-  if (surfaceKey === "tee") return "Tee shot. Driver should now leave an approach on this par 4.";
-  return "Ready for the next shot.";
-}
-
-function updateSuggestedClub(surfaceKey) {
-  if (surfaceKey === "green") setClub("putter", false);
-  if (surfaceKey === "sand") setClub("wedgeS", false);
-}
-
-function updateHud() {
-  const surfaceKey = surfaceAt(ball.x, ball.y);
-  const surface = surfaces[surfaceKey];
+function drawAimLine() {
+  if (!drag || pendingShot || ball.moving || ball.holed) return;
   const club = clubs[selectedClub];
-  const pinDistance = Math.round(distance(ball, course.hole) * YARDS_PER_PIXEL);
-  const maxCarry = getMaxCarry(selectedClub, surfaceKey);
-  const power = getCurrentPower();
-  const projected = Math.round(maxCarry * power);
-
-  strokesEl.textContent = strokes;
-  lieEl.textContent = surface.label;
-  clubEl.textContent = club.name;
-  distanceEl.textContent = `${pinDistance} yd`;
-  hintEl.textContent = message;
-
-  if (drag) {
-    const label = club.type === "putt" ? "roll" : "carry";
-    powerEl.textContent = `${Math.round(power * 100)}% · ${projected}y ${label}`;
-  } else {
-    const label = club.type === "putt" ? "roll" : "carry";
-    powerEl.textContent = maxCarry > 0 ? `Max ${maxCarry}y ${label}` : "No shot";
-  }
+  const maxCarry = getMaxCarry(selectedClub, getLie());
+  if (maxCarry <= 0) return;
+  const carryPixels = (maxCarry * drag.power) / YARDS_PER_PIXEL;
+  const endX = ball.x + Math.cos(drag.angle) * carryPixels;
+  const endY = ball.y + Math.sin(drag.angle) * carryPixels;
+  ctx.save();
+  ctx.strokeStyle = club.type === 'putt' ? 'rgba(255,255,255,0.55)' : 'rgba(255,247,167,0.78)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 7]);
+  ctx.beginPath();
+  ctx.moveTo(ball.x, ball.y);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.beginPath(); ctx.arc(endX, endY, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 
-function getPointer(event) {
-  const rect = canvas.getBoundingClientRect();
-  const screenPoint = {
-    x: clamp(((event.clientX - rect.left) / rect.width) * W, 0, W),
-    y: clamp(((event.clientY - rect.top) / rect.height) * H, 0, H)
-  };
-  return screenToWorld(screenPoint);
+function drawSkillBar() {
+  if (!pendingShot) return;
+  const marker = getSkillMarkerPosition();
+  const panelW = 350;
+  const panelH = 88;
+  const panelX = (canvas.width - panelW) / 2;
+  const panelY = canvas.height - 112;
+  const barX = panelX + 24;
+  const barY = panelY + 42;
+  const barW = panelW - 48;
+  const barH = 18;
+  const middleWidth = clamp(pendingShot.sweetWidth + 0.28 - pendingShot.difficulty * 0.06, pendingShot.sweetWidth + 0.14, 0.48);
+  const middleX = barX + (0.5 - middleWidth / 2) * barW;
+  const sweetX = barX + (0.5 - pendingShot.sweetWidth / 2) * barW;
+  const markerX = barX + marker * barW;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = 'rgba(7, 13, 7, 0.92)';
+  roundRect(ctx, panelX, panelY, panelW, panelH, 18); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.stroke();
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '800 14px system-ui';
+  ctx.fillText(`${clubs[pendingShot.clubKey].short} from ${surfaceLabels[pendingShot.lie]} · tap green`, canvas.width / 2, panelY + 22);
+  ctx.fillStyle = 'rgba(255,92,92,0.58)'; roundRect(ctx, barX, barY, barW, barH, 9); ctx.fill();
+  ctx.fillStyle = 'rgba(255,205,86,0.78)'; roundRect(ctx, middleX, barY, middleWidth * barW, barH, 9); ctx.fill();
+  ctx.fillStyle = '#72dd66'; roundRect(ctx, sweetX, barY - 2, pendingShot.sweetWidth * barW, barH + 4, 9); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(markerX, barY - 8); ctx.lineTo(markerX, barY + barH + 8); ctx.stroke();
+  ctx.fillStyle = '#d7eac8'; ctx.font = '700 11px system-ui';
+  ctx.fillText('green = sweet · yellow = safe · red = bad', canvas.width / 2, panelY + 72);
+  ctx.restore();
 }
 
-function setClub(clubKey, updateMessage = true) {
-  selectedClub = clubKey;
-  clubButtons.forEach((button) => {
-    button.classList.toggle("selected", button.dataset.club === clubKey);
-  });
-
-  if (updateMessage) {
-    const surfaceKey = surfaceAt(ball.x, ball.y);
-    const maxCarry = getMaxCarry(clubKey, surfaceKey);
-    const label = clubs[clubKey].type === "putt" ? "max roll" : "max carry";
-    message = maxCarry > 0
-      ? `${clubs[clubKey].name} selected. ${label}: ${maxCarry} yd from ${surfaces[surfaceKey].label}.`
-      : `${clubs[clubKey].name} selected. No playable distance from ${surfaces[surfaceKey].label}.`;
-  }
-
-  updateHud();
+function drawSkillFeedback() {
+  if (!skillFeedback) return;
+  const elapsed = performance.now() - skillFeedback.startedAt;
+  if (elapsed > 1500) { skillFeedback = null; return; }
+  const alpha = elapsed < 1100 ? 1 : 1 - (elapsed - 1100) / 400;
+  const fill = skillFeedback.zone === 'sweet' ? 'rgba(43,161,69,0.92)' : skillFeedback.zone === 'middle' ? 'rgba(177,130,32,0.92)' : 'rgba(165,54,54,0.92)';
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = clamp(alpha, 0, 1);
+  ctx.fillStyle = fill;
+  roundRect(ctx, (canvas.width - 220) / 2, 56, 220, 46, 16); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = '900 15px system-ui';
+  ctx.fillText(skillFeedback.label, canvas.width / 2, 84);
+  ctx.restore();
 }
 
-function resetBallToSafe() {
-  ball.x = lastSafe.x;
-  ball.y = lastSafe.y;
-  ball.vx = 0;
-  ball.vy = 0;
-  ball.visualScale = 1;
-  ball.moving = false;
-  ball.holed = false;
-  ball.flight = null;
-  ball.bounce = null;
-  message = "Ball reset to last safe resting spot.";
-  updateHud();
+function drawOverlayInfo() {
+  if (!isPuttingView()) return;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = 'rgba(9,22,9,0.62)';
+  roundRect(ctx, canvas.width - 118, 14, 104, 28, 14); ctx.fill();
+  ctx.fillStyle = '#eef8c8'; ctx.font = '800 11px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('Green read', canvas.width - 66, 32);
+  ctx.restore();
 }
 
-function restartHole() {
-  ball.x = 240;
-  ball.y = 579;
-  ball.vx = 0;
-  ball.vy = 0;
-  ball.visualScale = 1;
-  ball.moving = false;
-  ball.holed = false;
-  ball.flight = null;
-  ball.bounce = null;
-  strokes = 0;
-  selectedClub = "driver";
-  previousSafe = { x: ball.x, y: ball.y };
-  lastSafe = { x: ball.x, y: ball.y };
-  message = "Flight pass: carried shots now rise, land, bounce, then roll. Putts stay flat.";
-  clubButtons.forEach((button) => {
-    button.classList.toggle("selected", button.dataset.club === selectedClub);
-  });
-  updateHud();
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const cam = getCamera();
+  ctx.save();
+  ctx.setTransform(cam.zoom, 0, 0, cam.zoom, cam.tx, cam.ty);
+  drawCourse(ctx, hole, canvas.width, canvas.height, performance.now(), isPuttingView());
+  if (isPuttingView()) drawSlopeRead(ctx, hole, performance.now());
+  drawAimLine();
+  drawBall();
+  ctx.restore();
+  drawOverlayInfo();
+  drawSkillBar();
+  drawSkillFeedback();
 }
-
-canvas.addEventListener("pointerdown", (event) => {
-  if (ball.moving || ball.holed) return;
-  canvas.setPointerCapture(event.pointerId);
-  drag = getPointer(event);
-  updateHud();
-});
-
-canvas.addEventListener("pointermove", (event) => {
-  if (!drag || ball.moving || ball.holed) return;
-  drag = getPointer(event);
-  updateHud();
-});
-
-canvas.addEventListener("pointerup", (event) => {
-  if (!drag) return;
-  hitShot(getPointer(event));
-});
-
-canvas.addEventListener("pointercancel", () => {
-  drag = null;
-  updateHud();
-});
-
-clubButtons.forEach((button) => {
-  button.addEventListener("click", () => setClub(button.dataset.club));
-});
-
-resetShotButton.addEventListener("click", resetBallToSafe);
-newHoleButton.addEventListener("click", restartHole);
 
 function loop() {
-  updateBall();
+  updateFlight();
+  updateRoll();
+  updateHud();
   draw();
   requestAnimationFrame(loop);
 }
 
-restartHole();
-loop();
+canvas.addEventListener('pointerdown', (event) => {
+  if (pendingShot) {
+    event.preventDefault();
+    resolveSkillShot();
+    return;
+  }
+  if (ball.moving || ball.holed) return;
+  const point = screenToWorld(canvas, getCamera(), event.clientX, event.clientY);
+  drag = { startX: point.x, startY: point.y, angle: 0, power: 0 };
+  updateHud();
+});
+
+canvas.addEventListener('pointermove', (event) => {
+  if (!drag || pendingShot || ball.moving || ball.holed) return;
+  const point = screenToWorld(canvas, getCamera(), event.clientX, event.clientY);
+  const pullX = ball.x - point.x;
+  const pullY = ball.y - point.y;
+  drag.angle = Math.atan2(pullY, pullX);
+  drag.power = clamp(Math.hypot(pullX, pullY) / 120, 0, 1);
+  updateHud();
+});
+
+canvas.addEventListener('pointerup', (event) => {
+  if (!drag || pendingShot || ball.moving || ball.holed) return;
+  const point = screenToWorld(canvas, getCamera(), event.clientX, event.clientY);
+  startSkillShot(point);
+});
+
+canvas.addEventListener('pointercancel', () => { if (drag && !pendingShot) drag = null; });
+
+clubButtons.forEach(button => button.addEventListener('click', () => {
+  selectedClub = button.dataset.club;
+  updateClubButtons();
+  message = `${clubs[selectedClub].short} selected.`;
+  updateHud();
+}));
+
+resetShotButton.addEventListener('click', () => {
+  ball.x = lastSafe.x;
+  ball.y = lastSafe.y;
+  ball.vx = 0;
+  ball.vy = 0;
+  ball.moving = false;
+  ball.flight = null;
+  ball.holed = false;
+  drag = null;
+  pendingShot = null;
+  skillFeedback = null;
+  message = 'Ball reset to last safe position.';
+  updateHud();
+});
+
+newHoleButton.addEventListener('click', resetHole);
+
+resetHole();
+requestAnimationFrame(loop);
