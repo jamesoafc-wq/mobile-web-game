@@ -1,6 +1,6 @@
 // Tiny visible build marker. Bump this label whenever the playable build changes.
-const GAME_BUILD_LABEL = 'v0.31';
-const GAME_BUILD_TAG = 'realistic-hook-fade-flight';
+const GAME_BUILD_LABEL = 'v0.32';
+const GAME_BUILD_TAG = 'livelier-putting-soft-slope-arrows';
 
 const drawOverlayInfoBeforeVersionBadge = drawOverlayInfo;
 drawOverlayInfo = function drawOverlayInfoWithVersionBadge() {
