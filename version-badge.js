@@ -1,6 +1,6 @@
 // Tiny visible build marker. Bump this label whenever the playable build changes.
-const GAME_BUILD_LABEL = 'v0.24';
-const GAME_BUILD_TAG = 'slow-aligned-green-arrows';
+const GAME_BUILD_LABEL = 'v0.25';
+const GAME_BUILD_TAG = 'cup-forward-green-flow';
 
 const drawOverlayInfoBeforeVersionBadge = drawOverlayInfo;
 drawOverlayInfo = function drawOverlayInfoWithVersionBadge() {
