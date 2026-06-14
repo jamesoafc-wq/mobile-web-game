@@ -1,14 +1,14 @@
-// Putting physics rewrite for v0.27.
-// Loaded after active-tuning.js. Owns putter distance, aim line and green break.
+// Putting physics rewrite for v0.32.
+// Owns putter distance, aim line and green break.
 
 function getEffectivePuttYards(lie) {
-  if (lie === 'green') return 62;
-  if (lie === 'fringe') return 50;
-  return (clubs.putter.carry && clubs.putter.carry[lie]) || 28;
+  if (lie === 'green') return 65;
+  if (lie === 'fringe') return 52;
+  return (clubs.putter.carry && clubs.putter.carry[lie]) || 29;
 }
 
 function getPuttPowerCurve(power) {
-  return Math.pow(clamp(power, 0, 1), 1.22);
+  return Math.pow(clamp(power, 0, 1), 1.2);
 }
 
 function getPuttRollYards(lie, power, contactMultiplier = 1) {
@@ -18,8 +18,8 @@ function getPuttRollYards(lie, power, contactMultiplier = 1) {
 function getPuttLaunchSpeed(lie, rollYards) {
   const friction = rollFriction[lie] ?? rollFriction.green;
   const rollPixels = rollYards / YARDS_PER_PIXEL;
-  // Geometric rollout model: initial speed is derived from desired rollout and current friction.
-  return rollPixels * (1 - friction) * 0.94;
+  // Slightly livelier than v0.31 so putts do not die quite as early.
+  return rollPixels * (1 - friction) * 0.99;
 }
 
 function getPuttBreakForce(speed) {
