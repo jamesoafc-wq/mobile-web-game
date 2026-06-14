@@ -230,19 +230,32 @@ function drawSlopeRead(ctx, hole, timeMs) {
     const sideY = axis.x;
     const angle = Math.atan2(axis.y, axis.x);
     const strength = clamp((zone.strength - 0.00045) / 0.00045, 0.15, 1);
-    const laneCount = Math.max(5, Math.round(zone.ry / 6));
-    const arrowsPerLane = Math.max(7, Math.round(axis.span / 9));
-    const speed = 0.00034 + strength * 0.00042;
+    const laneCount = Math.max(6, Math.round(zone.ry / 5.5));
+    const arrowsPerLane = Math.max(9, Math.round(axis.span / 8));
+    const speed = 0.00022 + strength * 0.00028;
 
-    // Markers are evenly seeded along each visible slope lane so they no longer arrive in waves.
+    // Subtle guide lanes make each slope band clearer without changing the putt physics.
     for (let laneIndex = 0; laneIndex < laneCount; laneIndex++) {
       const laneT = laneCount === 1 ? 0 : laneIndex / (laneCount - 1);
-      const laneOffset = (laneT - 0.5) * zone.ry * 1.15;
+      const laneOffset = (laneT - 0.5) * zone.ry * 1.12;
+      const lineStartX = zone.x - axis.x * axis.span * 0.78 + sideX * laneOffset;
+      const lineStartY = zone.y - axis.y * axis.span * 0.78 + sideY * laneOffset;
+      const lineEndX = zone.x + axis.x * axis.span * 0.78 + sideX * laneOffset;
+      const lineEndY = zone.y + axis.y * axis.span * 0.78 + sideY * laneOffset;
+
+      ctx.save();
+      ctx.strokeStyle = `rgba(247,255,242,${0.028 + strength * 0.03})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(lineStartX, lineStartY);
+      ctx.lineTo(lineEndX, lineEndY);
+      ctx.stroke();
+      ctx.restore();
 
       for (let arrowIndex = 0; arrowIndex < arrowsPerLane; arrowIndex++) {
         const seed = arrowIndex / arrowsPerLane;
-        const phase = (timeMs * speed + seed + laneIndex * 0.071 + zoneIndex * 0.113) % 1;
-        const travel = (phase - 0.5) * axis.span * 1.65;
+        const phase = (timeMs * speed + seed + laneIndex * 0.067 + zoneIndex * 0.113) % 1;
+        const travel = (phase - 0.5) * axis.span * 1.56;
         const fade = Math.sin(phase * Math.PI);
         const cx = zone.x + axis.x * travel + sideX * laneOffset;
         const cy = zone.y + axis.y * travel + sideY * laneOffset;
@@ -250,13 +263,13 @@ function drawSlopeRead(ctx, hole, timeMs) {
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(angle);
-        ctx.globalAlpha = (0.032 + strength * 0.055) * fade;
+        ctx.globalAlpha = (0.05 + strength * 0.06) * fade;
         ctx.fillStyle = '#f7fff2';
         ctx.beginPath();
-        ctx.moveTo(3.4, 0);
-        ctx.lineTo(-2.9, -1.8);
-        ctx.lineTo(-1.15, 0);
-        ctx.lineTo(-2.9, 1.8);
+        ctx.moveTo(3.2, 0);
+        ctx.lineTo(-2.7, -1.7);
+        ctx.lineTo(-1.05, 0);
+        ctx.lineTo(-2.7, 1.7);
         ctx.closePath();
         ctx.fill();
         ctx.restore();
