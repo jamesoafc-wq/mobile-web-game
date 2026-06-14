@@ -1,24 +1,32 @@
 // Visual layering fix. Keeps hazard/surface logic untouched, but restores readable drawing order.
 
 function drawSlopeRead(ctx, hole, timeMs) {
-  hole.slopeZones.forEach(zone => {
+  hole.slopeZones.forEach((zone, zoneIndex) => {
     const len = Math.hypot(zone.dx, zone.dy) || 1;
     const ux = zone.dx / len;
     const uy = zone.dy / len;
-    for (let i = -1; i <= 1; i++) {
-      const phase = ((timeMs * 0.0013 + i * 0.33) % 1);
-      const cx = zone.x + ux * (phase - 0.5) * zone.rx * 0.95;
-      const cy = zone.y + uy * (phase - 0.5) * zone.ry * 0.95;
+    const sideX = -uy;
+    const sideY = ux;
+
+    // Dense, tiny flow markers. These intentionally feel more like the earlier subtle green-read texture.
+    for (let i = -3; i <= 3; i++) {
+      const lane = i / 3;
+      const laneOffset = lane * zone.ry * 0.28;
+      const phase = (timeMs * 0.0016 + i * 0.17 + zoneIndex * 0.11) % 1;
+      const travel = (phase - 0.5) * zone.rx * 1.05;
+      const cx = zone.x + ux * travel + sideX * laneOffset;
+      const cy = zone.y + uy * travel + sideY * laneOffset;
+
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(Math.atan2(uy, ux));
-      ctx.globalAlpha = 0.08 + phase * 0.12;
+      ctx.globalAlpha = 0.045 + phase * 0.075;
       ctx.fillStyle = '#f7fff2';
       ctx.beginPath();
-      ctx.moveTo(5, 0);
-      ctx.lineTo(-4, -3);
-      ctx.lineTo(-1.5, 0);
-      ctx.lineTo(-4, 3);
+      ctx.moveTo(3.8, 0);
+      ctx.lineTo(-3.2, -2.1);
+      ctx.lineTo(-1.3, 0);
+      ctx.lineTo(-3.2, 2.1);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
