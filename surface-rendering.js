@@ -54,13 +54,18 @@ function clipToPolygon(ctx, points, callback) {
 }
 
 function drawRoughBackground(ctx, W, H) {
-  ctx.fillStyle = '#2d6a37';
+  ctx.fillStyle = '#2b6635';
   ctx.fillRect(0, 0, W, H);
-  for (let y = 0; y < H; y += 14) {
-    for (let x = 0; x < W; x += 18) {
-      const alpha = 0.03 + (((x * 13 + y * 7) % 11) / 11) * 0.035;
-      ctx.fillStyle = `rgba(16,50,20,${alpha})`;
-      ctx.fillRect(x + ((y / 14) % 2) * 4, y, 8, 3);
+
+  // More visible rough texture, but still low contrast enough to sit behind course surfaces.
+  for (let y = -8; y < H + 8; y += 12) {
+    for (let x = -8; x < W + 8; x += 15) {
+      const seed = (x * 17 + y * 31) % 19;
+      const alpha = 0.055 + (seed / 19) * 0.045;
+      ctx.fillStyle = `rgba(9,39,16,${alpha})`;
+      ctx.fillRect(x + ((y / 12) % 2) * 4, y, 9, 2.4);
+      ctx.fillStyle = `rgba(98,153,79,${alpha * 0.45})`;
+      ctx.fillRect(x + 5, y + 5, 5, 1.6);
     }
   }
 }
@@ -153,7 +158,6 @@ function drawProps(ctx, hole) {
     const def = PROP_LIBRARY[prop.type];
     if (!def) return;
 
-    // Current prop library stores draw functions directly. Older definitions used { draw: 'fnName' }.
     if (typeof def === 'function') {
       def(ctx, prop);
       return;
@@ -166,20 +170,29 @@ function drawProps(ctx, hole) {
 
 function drawTrees(ctx, hole) {
   hole.trees.forEach(tree => {
-    const wobble = ((tree.x * 7 + tree.y * 11) % 17) / 17;
+    const prop = {
+      type: tree.variant || 'tree_round_oak_a',
+      x: tree.x,
+      y: tree.y,
+      rotation: tree.rotation || 0,
+      scale: tree.scale || 1
+    };
+    const def = PROP_LIBRARY[prop.type];
+    if (typeof def === 'function') {
+      def(ctx, prop);
+      return;
+    }
+
+    // Fallback tree if a variant is missing.
+    const r = (tree.r || 17) * (tree.scale || 1);
     ctx.save();
     ctx.translate(tree.x, tree.y);
-    ctx.rotate((wobble - 0.5) * 0.08);
     ctx.fillStyle = 'rgba(20,49,18,0.22)';
-    ctx.beginPath();
-    ctx.ellipse(2, 5, tree.r * 0.92, tree.r * 0.52, 0.28, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(2, 5, r * 0.92, r * 0.52, 0.28, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#2a702f';
-    ctx.beginPath(); ctx.arc(0, 0, tree.r, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#33823a';
-    ctx.beginPath(); ctx.arc(-tree.r * 0.25, -tree.r * 0.24, tree.r * 0.62, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    ctx.beginPath(); ctx.arc(-tree.r * 0.35, -tree.r * 0.38, tree.r * 0.22, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-r * 0.25, -r * 0.24, r * 0.62, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   });
 }
@@ -208,23 +221,25 @@ function drawSlopeRead(ctx, hole, timeMs) {
     const uy = zone.dy / len;
     const sideX = -uy;
     const sideY = ux;
-    for (let i = -3; i <= 3; i++) {
-      const lane = i / 3;
-      const laneOffset = lane * zone.ry * 0.28;
-      const phase = (timeMs * 0.0016 + i * 0.17 + zoneIndex * 0.11) % 1;
-      const travel = (phase - 0.5) * zone.rx * 1.05;
+
+    // Dense, tiny flow markers, closer to the earlier putting-read feel.
+    for (let i = -4; i <= 4; i++) {
+      const lane = i / 4;
+      const laneOffset = lane * zone.ry * 0.33;
+      const phase = (timeMs * 0.0017 + i * 0.13 + zoneIndex * 0.11) % 1;
+      const travel = (phase - 0.5) * zone.rx * 1.15;
       const cx = zone.x + ux * travel + sideX * laneOffset;
       const cy = zone.y + uy * travel + sideY * laneOffset;
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(Math.atan2(uy, ux));
-      ctx.globalAlpha = 0.045 + phase * 0.075;
+      ctx.globalAlpha = 0.05 + phase * 0.09;
       ctx.fillStyle = '#f7fff2';
       ctx.beginPath();
-      ctx.moveTo(3.8, 0);
-      ctx.lineTo(-3.2, -2.1);
-      ctx.lineTo(-1.3, 0);
-      ctx.lineTo(-3.2, 2.1);
+      ctx.moveTo(3.2, 0);
+      ctx.lineTo(-2.8, -1.8);
+      ctx.lineTo(-1.1, 0);
+      ctx.lineTo(-2.8, 1.8);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
