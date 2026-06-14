@@ -130,7 +130,6 @@ function drawGreen(ctx, hole) {
   drawPolygonFill(ctx, hole.greenRing, '#88cf74', 'rgba(45,100,45,0.38)', 2);
   drawPolygonFill(ctx, hole.green, '#9fe27e', 'rgba(56,120,47,0.45)', 2.2);
   clipToPolygon(ctx, hole.green, () => {
-    const bounds = polygonBounds(hole.green);
     for (let r = 12; r < 90; r += 13) {
       ctx.strokeStyle = 'rgba(255,255,255,0.055)';
       ctx.beginPath();
@@ -153,7 +152,14 @@ function drawProps(ctx, hole) {
   hole.props.forEach(prop => {
     const def = PROP_LIBRARY[prop.type];
     if (!def) return;
-    const drawFn = window[def.draw];
+
+    // Current prop library stores draw functions directly. Older definitions used { draw: 'fnName' }.
+    if (typeof def === 'function') {
+      def(ctx, prop);
+      return;
+    }
+
+    const drawFn = typeof def.draw === 'function' ? def.draw : window[def.draw];
     if (typeof drawFn === 'function') drawFn(ctx, prop);
   });
 }
@@ -196,21 +202,30 @@ function drawCupAndFlag(ctx, hole) {
 }
 
 function drawSlopeRead(ctx, hole, timeMs) {
-  hole.slopeZones.forEach(zone => {
+  hole.slopeZones.forEach((zone, zoneIndex) => {
     const len = Math.hypot(zone.dx, zone.dy) || 1;
     const ux = zone.dx / len;
     const uy = zone.dy / len;
-    for (let i = -1; i <= 1; i++) {
-      const phase = ((timeMs * 0.0015 + i * 0.33) % 1);
-      const cx = zone.x + ux * (phase - 0.5) * zone.rx * 1.25;
-      const cy = zone.y + uy * (phase - 0.5) * zone.ry * 1.25;
+    const sideX = -uy;
+    const sideY = ux;
+    for (let i = -3; i <= 3; i++) {
+      const lane = i / 3;
+      const laneOffset = lane * zone.ry * 0.28;
+      const phase = (timeMs * 0.0016 + i * 0.17 + zoneIndex * 0.11) % 1;
+      const travel = (phase - 0.5) * zone.rx * 1.05;
+      const cx = zone.x + ux * travel + sideX * laneOffset;
+      const cy = zone.y + uy * travel + sideY * laneOffset;
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(Math.atan2(uy, ux));
-      ctx.globalAlpha = 0.14 + phase * 0.18;
+      ctx.globalAlpha = 0.045 + phase * 0.075;
       ctx.fillStyle = '#f7fff2';
       ctx.beginPath();
-      ctx.moveTo(7, 0); ctx.lineTo(-5, -4); ctx.lineTo(-2, 0); ctx.lineTo(-5, 4); ctx.closePath();
+      ctx.moveTo(3.8, 0);
+      ctx.lineTo(-3.2, -2.1);
+      ctx.lineTo(-1.3, 0);
+      ctx.lineTo(-3.2, 2.1);
+      ctx.closePath();
       ctx.fill();
       ctx.restore();
     }
@@ -219,12 +234,12 @@ function drawSlopeRead(ctx, hole, timeMs) {
 
 function drawCourse(ctx, hole, W, H, timeMs, showSlope) {
   drawRoughBackground(ctx, W, H);
-  drawTrees(ctx, hole);
   drawWater(ctx, hole, timeMs);
   drawFairway(ctx, hole);
   drawTee(ctx, hole);
   drawBunkers(ctx, hole);
   drawGreen(ctx, hole);
+  drawTrees(ctx, hole);
   drawProps(ctx, hole);
   drawCupAndFlag(ctx, hole);
   if (showSlope) drawSlopeRead(ctx, hole, timeMs);
