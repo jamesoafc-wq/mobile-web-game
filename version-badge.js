@@ -1,6 +1,6 @@
 // Tiny visible build marker. Bump this label whenever the playable build changes.
-const GAME_BUILD_LABEL = 'v0.28';
-const GAME_BUILD_TAG = 'tracker-correction';
+const GAME_BUILD_LABEL = 'v0.29';
+const GAME_BUILD_TAG = 'slope-arrow-lanes';
 
 const drawOverlayInfoBeforeVersionBadge = drawOverlayInfo;
 drawOverlayInfo = function drawOverlayInfoWithVersionBadge() {
