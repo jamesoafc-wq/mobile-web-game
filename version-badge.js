@@ -1,6 +1,6 @@
 // Tiny visible build marker. Bump this label whenever the playable build changes.
-const GAME_BUILD_LABEL = 'v0.26';
-const GAME_BUILD_TAG = 'putter-pace-green-break';
+const GAME_BUILD_LABEL = 'v0.27';
+const GAME_BUILD_TAG = 'putting-physics-rewrite';
 
 const drawOverlayInfoBeforeVersionBadge = drawOverlayInfo;
 drawOverlayInfo = function drawOverlayInfoWithVersionBadge() {
