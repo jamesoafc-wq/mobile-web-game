@@ -216,35 +216,51 @@ function drawCupAndFlag(ctx, hole) {
 
 function drawSlopeRead(ctx, hole, timeMs) {
   hole.slopeZones.forEach((zone, zoneIndex) => {
-    const len = Math.hypot(zone.dx, zone.dy) || 1;
-    const flowX = zone.dx / len;
-    const flowY = zone.dy / len;
-    const sideX = -flowY;
-    const sideY = flowX;
-    const flowAngle = Math.atan2(flowY, flowX);
+    const physicsLen = Math.hypot(zone.dx, zone.dy) || 1;
+    const physicsX = zone.dx / physicsLen;
+    const physicsY = zone.dy / physicsLen;
+    const rot = zone.rotation || 0;
 
-    // Slow, tiny flow markers. Each arrow is positioned and rotated from the same flow vector.
-    for (let i = -4; i <= 4; i++) {
-      const lane = i / 4;
-      const laneOffset = lane * zone.ry * 0.3;
-      const phase = (timeMs * 0.00055 + i * 0.13 + zoneIndex * 0.11) % 1;
-      const travel = (phase - 0.5) * zone.rx * 1.08;
-      const cx = zone.x + flowX * travel + sideX * laneOffset;
-      const cy = zone.y + flowY * travel + sideY * laneOffset;
+    const axisA = { x: Math.cos(rot), y: Math.sin(rot), span: zone.rx };
+    const axisB = { x: -Math.sin(rot), y: Math.cos(rot), span: zone.ry };
+    let axis = Math.abs(axisA.x * physicsX + axisA.y * physicsY) >= Math.abs(axisB.x * physicsX + axisB.y * physicsY) ? axisA : axisB;
+    if (axis.x * physicsX + axis.y * physicsY < 0) axis = { x: -axis.x, y: -axis.y, span: axis.span };
 
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(flowAngle);
-      ctx.globalAlpha = 0.045 + Math.sin(phase * Math.PI) * 0.085;
-      ctx.fillStyle = '#f7fff2';
-      ctx.beginPath();
-      ctx.moveTo(3.6, 0);
-      ctx.lineTo(-3, -1.9);
-      ctx.lineTo(-1.2, 0);
-      ctx.lineTo(-3, 1.9);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+    const sideX = -axis.y;
+    const sideY = axis.x;
+    const angle = Math.atan2(axis.y, axis.x);
+    const strength = clamp((zone.strength - 0.00045) / 0.00045, 0.15, 1);
+    const laneCount = Math.max(5, Math.round(zone.ry / 6));
+    const arrowsPerLane = Math.max(7, Math.round(axis.span / 9));
+    const speed = 0.00034 + strength * 0.00042;
+
+    // Markers are evenly seeded along each visible slope lane so they no longer arrive in waves.
+    for (let laneIndex = 0; laneIndex < laneCount; laneIndex++) {
+      const laneT = laneCount === 1 ? 0 : laneIndex / (laneCount - 1);
+      const laneOffset = (laneT - 0.5) * zone.ry * 1.15;
+
+      for (let arrowIndex = 0; arrowIndex < arrowsPerLane; arrowIndex++) {
+        const seed = arrowIndex / arrowsPerLane;
+        const phase = (timeMs * speed + seed + laneIndex * 0.071 + zoneIndex * 0.113) % 1;
+        const travel = (phase - 0.5) * axis.span * 1.65;
+        const fade = Math.sin(phase * Math.PI);
+        const cx = zone.x + axis.x * travel + sideX * laneOffset;
+        const cy = zone.y + axis.y * travel + sideY * laneOffset;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.globalAlpha = (0.032 + strength * 0.055) * fade;
+        ctx.fillStyle = '#f7fff2';
+        ctx.beginPath();
+        ctx.moveTo(3.4, 0);
+        ctx.lineTo(-2.9, -1.8);
+        ctx.lineTo(-1.15, 0);
+        ctx.lineTo(-2.9, 1.8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
     }
   });
 }
