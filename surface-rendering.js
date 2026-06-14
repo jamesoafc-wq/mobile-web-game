@@ -217,29 +217,31 @@ function drawCupAndFlag(ctx, hole) {
 function drawSlopeRead(ctx, hole, timeMs) {
   hole.slopeZones.forEach((zone, zoneIndex) => {
     const len = Math.hypot(zone.dx, zone.dy) || 1;
-    const ux = zone.dx / len;
-    const uy = zone.dy / len;
-    const sideX = -uy;
-    const sideY = ux;
+    const flowX = zone.dx / len;
+    const flowY = zone.dy / len;
+    const sideX = -flowY;
+    const sideY = flowX;
+    const flowAngle = Math.atan2(flowY, flowX);
 
-    // Dense, tiny flow markers, closer to the earlier putting-read feel.
+    // Slow, tiny flow markers. Each arrow is positioned and rotated from the same flow vector.
     for (let i = -4; i <= 4; i++) {
       const lane = i / 4;
-      const laneOffset = lane * zone.ry * 0.33;
-      const phase = (timeMs * 0.0017 + i * 0.13 + zoneIndex * 0.11) % 1;
-      const travel = (phase - 0.5) * zone.rx * 1.15;
-      const cx = zone.x + ux * travel + sideX * laneOffset;
-      const cy = zone.y + uy * travel + sideY * laneOffset;
+      const laneOffset = lane * zone.ry * 0.3;
+      const phase = (timeMs * 0.00055 + i * 0.13 + zoneIndex * 0.11) % 1;
+      const travel = (phase - 0.5) * zone.rx * 1.08;
+      const cx = zone.x + flowX * travel + sideX * laneOffset;
+      const cy = zone.y + flowY * travel + sideY * laneOffset;
+
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(Math.atan2(uy, ux));
-      ctx.globalAlpha = 0.05 + phase * 0.09;
+      ctx.rotate(flowAngle);
+      ctx.globalAlpha = 0.045 + Math.sin(phase * Math.PI) * 0.085;
       ctx.fillStyle = '#f7fff2';
       ctx.beginPath();
-      ctx.moveTo(3.2, 0);
-      ctx.lineTo(-2.8, -1.8);
-      ctx.lineTo(-1.1, 0);
-      ctx.lineTo(-2.8, 1.8);
+      ctx.moveTo(3.6, 0);
+      ctx.lineTo(-3, -1.9);
+      ctx.lineTo(-1.2, 0);
+      ctx.lineTo(-3, 1.9);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
