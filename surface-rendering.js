@@ -1,11 +1,19 @@
 function getSurfaceAtPoint(hole, x, y) {
   const point = { x, y };
 
-  // Match the visual draw order: playable/course surfaces drawn on top of water
-  // should win the lie check. Water is only a hazard where it remains exposed.
-  for (const bunker of hole.bunkers) if (pointInPolygon(point, bunker)) return 'sand';
+  // Lie detection must match the VISUAL draw order (later = on top = what the
+  // player sees and expects to play from). The course is painted:
+  //   water -> fairway -> tee -> bunkers -> green -> (trees/props/cup)
+  // So green and fringe are drawn ON TOP of bunkers. If a bunker polygon
+  // overlaps the green/fringe, the spot the player sees is grass, and a putt
+  // must be playable there. Previously bunkers were checked first, so a ball
+  // resting on the green above an overlapping bunker reported 'sand' — the
+  // putter (which can't play from sand) then refused the shot, breaking the
+  // next stroke. Checking green/fringe before bunkers fixes that while keeping
+  // genuine greenside bunkers (which don't overlap the green) as 'sand'.
   if (pointInPolygon(point, hole.green)) return 'green';
   if (pointInPolygon(point, hole.greenRing)) return 'fringe';
+  for (const bunker of hole.bunkers) if (pointInPolygon(point, bunker)) return 'sand';
   if (pointInPolygon(point, hole.tee)) return 'tee';
   if (pointInPolygon(point, hole.fairway)) return 'fairway';
   if (pointInPolygon(point, hole.water)) return 'water';
