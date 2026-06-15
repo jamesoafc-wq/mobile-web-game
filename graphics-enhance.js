@@ -95,11 +95,11 @@
     var b = polyBounds(pts);
     var span = pos(Math.max(b.w, b.h), 1);
     var g = ctx.createLinearGradient(
-      b.cx + LIGHT.x * span * 0.6, b.cy + LIGHT.y * span * 0.6,
-      b.cx - LIGHT.x * span * 0.6, b.cy - LIGHT.y * span * 0.6);
-    g.addColorStop(0, 'rgba(' + lightRgb + ',' + (0.12 * strength) + ')');
+      b.cx + LIGHT.x * span * 0.55, b.cy + LIGHT.y * span * 0.55,
+      b.cx - LIGHT.x * span * 0.55, b.cy - LIGHT.y * span * 0.55);
+    g.addColorStop(0, 'rgba(' + lightRgb + ',' + (0.26 * strength) + ')');
     g.addColorStop(0.5, 'rgba(' + lightRgb + ',0)');
-    g.addColorStop(1, 'rgba(' + shadowRgb + ',' + (0.14 * strength) + ')');
+    g.addColorStop(1, 'rgba(' + shadowRgb + ',' + (0.30 * strength) + ')');
     ctx.save();
     tracePoly(pts); ctx.clip();
     ctx.fillStyle = g;
@@ -112,13 +112,13 @@
   function greenDome(pts, lightRgb, shadowRgb) {
     if (!pts || pts.length < 3) return;
     var b = polyBounds(pts);
-    var r = pos(Math.max(b.w, b.h) * 0.62, 2);
-    var cx = b.cx + LIGHT.x * b.w * 0.10;
-    var cy = b.cy + LIGHT.y * b.h * 0.10;
+    var r = pos(Math.max(b.w, b.h) * 0.66, 2);
+    var cx = b.cx + LIGHT.x * b.w * 0.16;
+    var cy = b.cy + LIGHT.y * b.h * 0.16;
     var g = ctx.createRadialGradient(cx, cy, pos(r * 0.12, 0.5), b.cx, b.cy, r);
-    g.addColorStop(0, 'rgba(' + lightRgb + ',0.22)');
-    g.addColorStop(0.55, 'rgba(' + lightRgb + ',0.05)');
-    g.addColorStop(1, 'rgba(' + shadowRgb + ',0.16)');
+    g.addColorStop(0, 'rgba(' + lightRgb + ',0.40)');
+    g.addColorStop(0.5, 'rgba(' + lightRgb + ',0.08)');
+    g.addColorStop(1, 'rgba(' + shadowRgb + ',0.30)');
     ctx.save();
     tracePoly(pts); ctx.clip();
     ctx.fillStyle = g;
@@ -161,6 +161,25 @@
   // ====================================================================
   // drawCourse wrapper
   // ====================================================================
+  // A very soft scene-wide light: warm glow from the sun side, gentle shade in
+  // the far corner. Drawn over the whole hole region so the scene has a single
+  // readable light direction. Kept low-opacity so it never muddies the colours.
+  function sceneSunLight(hole, W, H) {
+    // sun glow centre: pull toward the top-left (the light source)
+    var cx = W * (0.5 + LIGHT.x * 0.42);
+    var cy = H * (0.5 + LIGHT.y * 0.42);
+    var rad = pos(Math.max(W, H) * 1.05, 1);
+    var g = ctx.createRadialGradient(cx, cy, pos(rad * 0.08, 1), W * 0.5, H * 0.5, rad);
+    g.addColorStop(0, 'rgba(255,248,214,0.10)');
+    g.addColorStop(0.5, 'rgba(255,248,214,0.0)');
+    g.addColorStop(1, 'rgba(6,18,10,0.20)');
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);   // screen space, full viewport
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
   var baseCourse = drawCourse;
   drawCourse = function drawCourseEnhanced(c, hole, W, H, timeMs, showSlope) {
     var t = tint(hole);
@@ -169,12 +188,15 @@
     // (1) grounding shadows UNDER the raised features
     safe(function () {
       if (hole && hole.bunkers) for (var i = 0; i < hole.bunkers.length; i++)
-        groundShadow(hole.bunkers[i], shadowRgb, 7, 0.20, 5);
-      if (hole && hole.greenRing) groundShadow(hole.greenRing, shadowRgb, 11, 0.22, 7);
+        groundShadow(hole.bunkers[i], shadowRgb, 9, 0.32, 7);
+      if (hole && hole.greenRing) groundShadow(hole.greenRing, shadowRgb, 14, 0.34, 9);
     });
 
     // (2) the REAL render — always runs, untouched
     baseCourse(c, hole, W, H, timeMs, showSlope);
+
+    // (2b) scene-wide sun light for a readable global light direction
+    safe(function () { sceneSunLight(hole, W, H); });
 
     // (3) depth passes OVER the surfaces
     safe(function () { if (hole && hole.fairway) surfaceSheen(hole.fairway, shadowRgb, lightRgb, 1); });
