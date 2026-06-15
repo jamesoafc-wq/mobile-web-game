@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Stage C graphics preview</title>
+<style>
+  :root { --ink:#0e1b10; --paper:#0a1209; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; background:#0a1209; color:#e8f6de;
+    font:600 15px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    padding:18px 12px 40px; min-height:100vh;
+  }
+  h1 { font-size:17px; font-weight:800; letter-spacing:.2px; margin:2px 0 0; }
+  p.sub { margin:0; color:rgba(232,246,222,.62); font-size:12.5px; text-align:center; max-width:380px; }
+  .stage { position:relative; width:min(420px,94vw); aspect-ratio:420/620; border-radius:18px; overflow:hidden;
+           box-shadow:0 18px 48px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06); }
+  canvas { width:100%; height:100%; display:block; }
+  .tag { position:absolute; top:10px; left:10px; padding:5px 11px; border-radius:999px;
+         background:rgba(6,16,8,.78); font-size:11px; font-weight:800; letter-spacing:.4px;
+         border:1px solid rgba(255,255,255,.12); }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  button { appearance:none; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06);
+           color:#e8f6de; font:800 13px system-ui; padding:10px 16px; border-radius:12px; cursor:pointer;
+           transition:transform .08s ease, background .15s ease; }
+  button:active { transform:scale(.96); }
+  button.on { background:#9fe27e; color:#0e1b10; border-color:#9fe27e; }
+  .hint { font-size:11.5px; color:rgba(232,246,222,.5); }
+</style>
+</head>
+<body>
+<script>
+// Surface ANY error visibly instead of leaving a silent black canvas.
+window.addEventListener('error', function(ev){
+  var b = document.getElementById('errbar');
+  if(!b){ b=document.createElement('div'); b.id='errbar';
+    b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#3a0d0d;color:#ffd9d9;font:600 12px ui-monospace,monospace;padding:10px 12px;white-space:pre-wrap;border-top:2px solid #ff6b6b';
+    document.body.appendChild(b); }
+  b.textContent = '⚠ ' + (ev.message||ev.error&&ev.error.message||'error') + (ev.filename?('\n'+ev.filename+':'+ev.lineno):'');
+});
+</script>
+  <h1>Stage C — depth, lighting &amp; shadows</h1>
+  <p class="sub">Same Hole 1, same colours. Toggle the enhancement to compare. The ball arcs so you can see the flight shadow detach with height.</p>
+
+  <div class="stage">
+    <canvas id="c" width="420" height="620"></canvas>
+    <div class="tag" id="tag">Enhanced: ON</div>
+  </div>
+
+  <div class="controls">
+    <button id="toggle" class="on">Enhancement: ON</button>
+    <button id="flight">▶ Replay flight</button>
+    <button id="putt">Show on green</button>
+  </div>
+  <div class="hint">If the look is wrong, this is exactly what the off-switch in the game would revert to.</div>
+
+<script src="shared.js"></script>
+<script src="hole-data.js"></script>
+<script src="props.js"></script>
+<script src="surface-rendering.js"></script>
+<script>
+// --- minimal game-global shims the enhancement layer expects ----------------
+// Expose as TRUE globals (via window) so the graphics-enhance IIFE — loaded as
+// a separate <script> — resolves `ctx`, `canvas`, `ball`, `hole`, `getCamera`
+// exactly the way it resolves engine-core's globals in the real game.
+window.canvas = document.getElementById('c');
+window.ctx = window.canvas.getContext('2d');
+var canvas = window.canvas;
+var ctx = window.ctx;
+
+window.hole = JSON.parse(JSON.stringify(HOLES[0]));   // real Hole 1 data
+var hole = window.hole;
+window.ball = { x: hole.start.x, y: hole.start.y, vx:0, vy:0, moving:false, flight:null,
+             holed:false, visualScale:1, radius:4.6, prevX:hole.start.x, prevY:hole.start.y };
+var ball = window.ball;
+window.getCamera = function(){ return { zoom:1, tx:0, ty:0 }; };   // full-hole view
+var getCamera = window.getCamera;
+
+// Base drawBall = the real customisation-style ball (flat shadow), so the
+// "OFF" state matches what the game looks like today.
+function drawBallBase(){
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(ball.x, ball.y+5, ball.radius*1.1, ball.radius*0.6, 0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#ffffff';
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius*ball.visualScale, 0, Math.PI*2); ctx.fill();
+  ctx.lineWidth=1; ctx.strokeStyle='rgba(0,0,0,0.16)'; ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,0.86)';
+  ctx.beginPath(); ctx.arc(ball.x-1.3, ball.y-1.6, Math.max(1.3, ball.radius*0.24), 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+// NOTE: drawCourse and drawBall already exist as globals (drawCourse from
+// surface-rendering.js; drawBall we define here). We must NOT redeclare them
+// with let/const — that is a redeclaration error in shared global scope that
+// would abort this script. Assign onto window instead, then capture the base
+// refs for the toggle.
+window.drawBall = drawBallBase;
+window.baseDrawCourse = window.drawCourse;   // real base from surface-rendering.js
+window.baseDrawBall = drawBallBase;
+</script>
+<script src="graphics-enhance.js"></script>
+<script>
+// After graphics-enhance.js runs, drawCourse/drawBall are the ENHANCED versions.
+const enhancedDrawCourse = window.drawCourse;
+const enhancedDrawBall = window.drawBall;
+const baseDrawCourse = window.baseDrawCourse;
+const baseDrawBall = window.baseDrawBall;
+let enhanced = true;
+
+function render(){
+  if(!ctx){ throw new Error('2D context is null — canvas.getContext("2d") failed'); }
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const dc = enhanced ? enhancedDrawCourse : baseDrawCourse;
+  const db = enhanced ? enhancedDrawBall : baseDrawBall;
+  dc(ctx, hole, canvas.width, canvas.height, performance.now(), false);
+  db();
+}
+
+// --- flight animation: arc the ball from tee toward the green ---------------
+let anim = null;
+function startFlight(){
+  cancelAnimationFrame(anim);
+  const start = { x: hole.start.x, y: hole.start.y };
+  const end = { x: hole.cup.x, y: hole.cup.y + 40 };
+  const dur = 1500, t0 = performance.now(), height = 0.9;
+  ball.flight = {}; ball.moving = true;
+  (function step(){
+    const t = clamp((performance.now()-t0)/dur, 0, 1);
+    const ease = t;
+    ball.x = lerp(start.x, end.x, ease);
+    ball.y = lerp(start.y, end.y, ease);
+    ball.visualScale = 1 + Math.sin(t*Math.PI) * height;   // same shape engine uses
+    render();
+    if (t < 1) anim = requestAnimationFrame(step);
+    else { ball.visualScale = 1; ball.flight=null; ball.moving=false; render(); }
+  })();
+}
+
+function showGreen(){
+  cancelAnimationFrame(anim);
+  ball.x = hole.cup.x - 14; ball.y = hole.cup.y + 26;
+  ball.visualScale = 1; ball.flight=null; ball.moving=false;
+  render();
+}
+
+document.getElementById('toggle').onclick = e => {
+  enhanced = !enhanced;
+  e.target.classList.toggle('on', enhanced);
+  e.target.textContent = 'Enhancement: ' + (enhanced ? 'ON' : 'OFF');
+  document.getElementById('tag').textContent = 'Enhanced: ' + (enhanced ? 'ON' : 'OFF');
+  render();
+};
+document.getElementById('flight').onclick = startFlight;
+document.getElementById('putt').onclick = showGreen;
+
+// ambient water animation
+(function loop(){ render(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>
