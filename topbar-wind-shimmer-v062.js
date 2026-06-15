@@ -1,4 +1,4 @@
-// v0.62: swap Score/Next Shot, full-bar shimmer, and proper launch-time wind flight.
+// v0.62/v0.72: swap Score/Next Shot, full-bar shimmer, score-cell glow, and proper launch-time wind flight.
 
 function reorderTopBarV062() {
   if (typeof topBarV060 === 'undefined') return;
@@ -11,6 +11,7 @@ function reorderTopBarV062() {
 }
 
 let topBarShimmerUntilV062 = 0;
+let scoreGlowUntilV072 = 0;
 
 function installTopBarShimmerV062() {
   if (typeof topBarV060 === 'undefined') return null;
@@ -39,12 +40,63 @@ function installTopBarShimmerV062() {
   return beam;
 }
 
+function installScoreGlowV072() {
+  if (typeof scoreCellV060 === 'undefined' || !scoreCellV060.cell) return null;
+  const cell = scoreCellV060.cell;
+  cell.style.position = 'relative';
+  cell.style.overflow = 'hidden';
+  cell.style.transition = 'box-shadow 120ms ease, background 120ms ease, transform 120ms ease';
+
+  let glow = cell.querySelector('[data-score-glow-v072="true"]');
+  if (!glow) {
+    glow = document.createElement('div');
+    glow.dataset.scoreGlowV072 = 'true';
+    glow.style.cssText = [
+      'position:absolute',
+      'inset:0',
+      'border-radius:inherit',
+      'background:radial-gradient(circle at 50% 45%,rgba(255,242,157,.42),rgba(255,214,82,.18) 42%,transparent 72%)',
+      'opacity:0',
+      'pointer-events:none',
+      'z-index:1'
+    ].join(';');
+    cell.insertBefore(glow, cell.firstChild);
+  }
+  return glow;
+}
+
 triggerScoreShimmerV061 = function triggerFullBarShimmerV062() {
-  topBarShimmerUntilV062 = performance.now() + 940;
+  const now = performance.now();
+  topBarShimmerUntilV062 = now + 940;
+  scoreGlowUntilV072 = now + 940;
 };
+
+function runScoreGlowV072() {
+  const glow = installScoreGlowV072();
+  if (!glow || typeof scoreCellV060 === 'undefined' || !scoreCellV060.cell) return;
+  const cell = scoreCellV060.cell;
+  const start = scoreGlowUntilV072 - 940;
+  const now = performance.now();
+  if (now > scoreGlowUntilV072) {
+    glow.style.opacity = '0';
+    cell.style.boxShadow = '';
+    cell.style.background = '';
+    cell.style.transform = '';
+    return;
+  }
+  const t = clamp((now - start) / 940, 0, 1);
+  const pulse = Math.sin(t * Math.PI);
+  const flicker = 0.82 + Math.sin(t * Math.PI * 5) * 0.08;
+  const strength = pulse * flicker;
+  glow.style.opacity = String(0.82 * strength);
+  cell.style.boxShadow = `inset 0 0 ${10 + 16 * strength}px rgba(255,226,88,${0.18 + 0.28 * strength}), 0 0 ${8 + 18 * strength}px rgba(255,214,72,${0.16 + 0.26 * strength})`;
+  cell.style.background = `linear-gradient(180deg, rgba(255,238,142,${0.08 + 0.18 * strength}), rgba(255,208,74,${0.04 + 0.12 * strength}))`;
+  cell.style.transform = `scale(${1 + 0.012 * strength})`;
+}
 
 runScoreShimmerV061 = function runFullBarShimmerV062() {
   const beam = installTopBarShimmerV062();
+  runScoreGlowV072();
   if (!beam) return;
   const start = topBarShimmerUntilV062 - 940;
   const now = performance.now();
@@ -97,6 +149,7 @@ styleUnifiedTopBarV061 = function styleUnifiedTopBarOrderV062() {
   styleUnifiedTopBarBeforeV062();
   reorderTopBarV062();
   installTopBarShimmerV062();
+  installScoreGlowV072();
 };
 
 const updateUnifiedTopBarBeforeV062 = typeof updateUnifiedTopBarV060 === 'function' ? updateUnifiedTopBarV060 : function() {};
@@ -104,6 +157,7 @@ updateUnifiedTopBarV060 = function updateUnifiedTopBarOrderV062() {
   updateUnifiedTopBarBeforeV062();
   reorderTopBarV062();
   installTopBarShimmerV062();
+  installScoreGlowV072();
   runScoreShimmerV061();
 };
 
@@ -114,5 +168,5 @@ draw = function drawTopbarWindV062() {
   runScoreShimmerV061();
 };
 
-setTimeout(() => { reorderTopBarV062(); installTopBarShimmerV062(); }, 0);
-setTimeout(() => { reorderTopBarV062(); installTopBarShimmerV062(); }, 300);
+setTimeout(() => { reorderTopBarV062(); installTopBarShimmerV062(); installScoreGlowV072(); }, 0);
+setTimeout(() => { reorderTopBarV062(); installTopBarShimmerV062(); installScoreGlowV072(); }, 300);
