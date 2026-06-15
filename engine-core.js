@@ -479,14 +479,26 @@ function updateRoll() {
     return;
   }
 
-  // (3) break component 1 — base game.js break.
+  // (3) green break — single, gravity-style, speed-scaled.
+  // Uses the height-field model (slope-field.js) when present: the ball rolls
+  // down the gradient of the green's surface, and fast putts hold their line
+  // while dying putts take the full break. Falls back to the legacy sampler if
+  // the field module hasn't loaded.
   if (lie === 'green' || lie === 'fringe') {
-    const slope = getGreenSlopeAt(hole, ball.x, ball.y);
     const speed = Math.hypot(ball.vx, ball.vy);
-    if (speed > 0.052 && slope.strength > 0.00004) {
-      const breakForce = clamp(0.62 - speed * 0.32, 0.16, 0.64);
-      ball.vx += slope.x * breakForce;
-      ball.vy += slope.y * breakForce;
+    if (speed > 0.004) {
+      if (typeof greenBreakAccel === 'function') {
+        const a = greenBreakAccel(hole, ball.x, ball.y, speed, ball.vx, ball.vy);
+        ball.vx += a.x;
+        ball.vy += a.y;
+      } else {
+        const slope = getGreenSlopeAt(hole, ball.x, ball.y);
+        if (slope.strength > 0.00004 && speed > 0.052) {
+          const breakForce = clamp(0.62 - speed * 0.32, 0.16, 0.64);
+          ball.vx += slope.x * breakForce;
+          ball.vy += slope.y * breakForce;
+        }
+      }
     }
   }
 
@@ -507,8 +519,11 @@ function updateRoll() {
     lastSafe = { x: ball.x, y: ball.y };
   }
 
-  // (7) break component 2 — v027 applyPuttBreak, layered on AFTER friction.
-  if (ball.moving && !ball.flight && !ball.holed) {
+  // (7) legacy second break — only used as a fallback when the height-field
+  // model is NOT loaded (it reproduced the original game's double-break). With
+  // slope-field.js present, break is fully handled once in step (3), so this is
+  // skipped to avoid double-applying.
+  if (typeof greenBreakAccel !== 'function' && ball.moving && !ball.flight && !ball.holed) {
     const lie2 = getLie();
     if (lie2 === 'green' || lie2 === 'fringe') {
       const slope = getGreenSlopeAt(hole, ball.x, ball.y);
