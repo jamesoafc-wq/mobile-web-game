@@ -1,192 +1,235 @@
 // ============================================================================
-// graphics-enhance.js  ·  Stage C — depth, lighting & shadows
+// graphics-enhance.js  ·  Stage C — depth, lighting & shadows  (clean rewrite)
 // ----------------------------------------------------------------------------
-// Loads LAST. Wraps the live drawCourse and drawBall to add dimensionality to
-// the previously flat top-down rendering, WITHOUT touching the menu, HUD, round
-// or course-data layers. Everything it does is additive compositing on top of
-// the existing themed surfaces.
+// Loads LAST. Adds dimensionality to the flat top-down rendering WITHOUT
+// touching menu, HUD, round, course-data, or input. It only wraps the two
+// rendering entry points the engine calls each frame — drawCourse and drawBall
+// — and composites extra light/shadow on top of the real, untouched render.
 //
-// Design direction: a single consistent sun from the top-left (warm key light),
-// soft contact shadows that "lift" the green/bunkers/trees off the rough, gentle
-// directional shading on each surface so it reads as a gradient rather than a
-// flat fill, and — the thing that sells 3D most — a ball shadow that detaches
-// and softens with flight height, then re-grounds on landing.
+// SAFETY BY CONSTRUCTION
+// ----------------------
+//  * Every visual pass is run through safe() — a try/catch that restores the
+//    canvas state and swallows errors. A bad frame can NEVER throw out of the
+//    wrapper, so the game can never freeze because of graphics.
+//  * The real base render always runs FIRST and unconditionally, so even if
+//    every enhancement pass failed, you'd still see exactly today's game.
+//  * All radii/coords fed to gradients & arcs are clamped finite & positive
+//    (the one thing that throws in real browsers).
 //
-// All wrapping uses the same global-reassignment contract as the rest of the
-// game (const before = fn; fn = wrapper). Pure rendering, no physics, no state.
+// Same global-script contract as the rest of the game: we read the engine's
+// globals (ctx, ball, hole, clamp, lerp, drawRoundedPolygon) and reassign the
+// bare globals drawCourse / drawBall.
 // ============================================================================
 
 (function () {
-  // The world light direction (normalised), in canvas space. Top-left sun.
-  const LIGHT = { x: -0.55, y: -0.83 };
-  // How far surface shadows are cast (world px), opposite the light.
-  const SHADOW_OFFSET = 6;
+  'use strict';
 
-  // Guard: only enhance if the live rendering primitives exist.
-  if (typeof drawCourse !== 'function' || typeof window.drawRoundedPolygon !== 'function') {
-    // drawRoundedPolygon lives in shared.js; if anything is missing we no-op
-    // rather than risk breaking the frame.
-    return;
-  }
+  // ---- guards: only engage if the primitives we need exist -----------------
+  if (typeof drawCourse !== 'function' || typeof drawBall !== 'function') return;
+  var HAS_POLY = (typeof drawRoundedPolygon === 'function');
+  var CLAMP = (typeof clamp === 'function') ? clamp
+    : function (v, a, b) { return Math.max(a, Math.min(b, v)); };
 
-  // --- helpers --------------------------------------------------------------
-  function pathRoundedPolygon(ctx, points) {
-    // Mirror of shared.js drawRoundedPolygon, but path-only (no fill/stroke),
-    // so we can use it for clipping and shadow silhouettes.
-    drawRoundedPolygon(ctx, points);
-  }
+  // ---- world light (top-left sun) ------------------------------------------
+  var LIGHT = { x: -0.52, y: -0.85 };
 
-  // Soft drop shadow cast by a polygon onto the ground beneath it.
-  function castPolygonShadow(ctx, points, blur, alpha) {
-    if (!points || points.length < 3) return;
-    ctx.save();
-    ctx.translate(-LIGHT.x * SHADOW_OFFSET, -LIGHT.y * SHADOW_OFFSET);
-    ctx.shadowColor = `rgba(8, 26, 12, ${alpha})`;
-    ctx.shadowBlur = blur;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.fillStyle = 'rgba(8,26,12,0.85)';
-    pathRoundedPolygon(ctx, points);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // A directional sheen across a polygon: lighter toward the light, darker away.
-  function shadePolygon(ctx, points) {
-    if (!points || points.length < 3) return;
-    const b = polygonBounds(points);
-    const cx = (b.minX + b.maxX) / 2;
-    const cy = (b.minY + b.maxY) / 2;
-    const span = Math.max(b.maxX - b.minX, b.maxY - b.minY) || 1;
-    const gx = cx + LIGHT.x * span * 0.6;
-    const gy = cy + LIGHT.y * span * 0.6;
-    const gx2 = cx - LIGHT.x * span * 0.6;
-    const gy2 = cy - LIGHT.y * span * 0.6;
-    const grad = ctx.createLinearGradient(gx, gy, gx2, gy2);
-    grad.addColorStop(0, 'rgba(255,255,240,0.10)');
-    grad.addColorStop(0.5, 'rgba(255,255,240,0.0)');
-    grad.addColorStop(1, 'rgba(6,24,12,0.12)');
-    ctx.save();
-    pathRoundedPolygon(ctx, points);
-    ctx.clip();
-    ctx.fillStyle = grad;
-    pathRoundedPolygon(ctx, points);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // ====================================================================
-  // drawCourse wrapper: shadows UNDER, base render, shading + tree depth OVER
-  // ====================================================================
-  const drawCourseBeforeEnhance = drawCourse;
-  drawCourse = function drawCourseEnhanced(ctx, hole, W, H, timeMs, showSlope) {
-    // 1) Cast soft contact shadows beneath raised features, so the base render
-    //    sits on top of them and looks grounded. Drawn before the surfaces.
-    ctx.save();
-    if (hole.bunkers) hole.bunkers.forEach(bk => castPolygonShadow(ctx, bk, 7, 0.18));
-    if (hole.greenRing) castPolygonShadow(ctx, hole.greenRing, 10, 0.20);
-    ctx.restore();
-
-    // 2) The real, unmodified course render (themed surfaces, trees, props,
-    //    cup, slope). Untouched.
-    drawCourseBeforeEnhance(ctx, hole, W, H, timeMs, showSlope);
-
-    // 3) Directional shading pass over the big surfaces for gradient depth.
-    if (hole.fairway) shadePolygon(ctx, hole.fairway);
-    if (hole.green) shadePolygon(ctx, hole.green);
-
-    // 4) Re-ground the trees with a longer cast shadow + a lit-side rim, on top
-    //    of the flat canopies the base renderer drew.
-    if (hole.trees) drawTreeDepth(ctx, hole.trees, timeMs);
+  // Per-course shadow / light tints so the depth feels native to each theme.
+  // [shadow rgb, warm-light rgb]
+  var THEME_TINT = {
+    willow: ['6,26,12', '255,250,205'],
+    coral:  ['4,40,46', '230,255,245'],
+    dunes:  ['60,38,12', '255,244,205'],
+    pine:   ['3,16,11', '210,245,200'],
+    silver: ['8,30,32', '224,245,250']
   };
+  function tint(hole) {
+    return THEME_TINT[(hole && hole.courseTheme)] || THEME_TINT.willow;
+  }
 
-  // Adds a cast shadow and a lit rim to each tree canopy (the base draws a flat
-  // disc; this gives it a sun side and a ground shadow without replacing it).
-  function drawTreeDepth(ctx, trees, timeMs) {
-    trees.forEach(tree => {
-      const r = (tree.r || 17) * (tree.scale || 1);
-      const x = tree.x, y = tree.y;
-      // Cast shadow on the ground, opposite the light, elongated.
+  // ---- tiny helpers --------------------------------------------------------
+  function num(v, d) { return (typeof v === 'number' && isFinite(v)) ? v : d; }
+  function pos(v, min) { v = num(v, min); return v > min ? v : min; }
+
+  // Run a visual pass; if it throws, restore canvas balance and move on.
+  function safe(fn) {
+    try { fn(); }
+    catch (e) { try { ctx.restore(); } catch (_) {} }
+  }
+
+  function polyBounds(pts) {
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i];
+      if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    }
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY,
+             cx: (minX + maxX) / 2, cy: (minY + maxY) / 2,
+             w: maxX - minX, h: maxY - minY };
+  }
+
+  function tracePoly(pts) {
+    if (HAS_POLY) { drawRoundedPolygon(ctx, pts); return; }
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+  }
+
+  // Soft contact shadow cast just under a raised polygon (green / bunker).
+  function groundShadow(pts, shadowRgb, blur, alpha, lift) {
+    if (!pts || pts.length < 3) return;
+    ctx.save();
+    ctx.translate(-LIGHT.x * lift, -LIGHT.y * lift);
+    ctx.shadowColor = 'rgba(' + shadowRgb + ',' + alpha + ')';
+    ctx.shadowBlur = pos(blur, 1);
+    ctx.fillStyle = 'rgba(' + shadowRgb + ',' + alpha + ')';
+    tracePoly(pts);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Directional sheen across a surface: warm toward the sun, shade away from it.
+  function surfaceSheen(pts, shadowRgb, lightRgb, strength) {
+    if (!pts || pts.length < 3) return;
+    var b = polyBounds(pts);
+    var span = pos(Math.max(b.w, b.h), 1);
+    var g = ctx.createLinearGradient(
+      b.cx + LIGHT.x * span * 0.6, b.cy + LIGHT.y * span * 0.6,
+      b.cx - LIGHT.x * span * 0.6, b.cy - LIGHT.y * span * 0.6);
+    g.addColorStop(0, 'rgba(' + lightRgb + ',' + (0.12 * strength) + ')');
+    g.addColorStop(0.5, 'rgba(' + lightRgb + ',0)');
+    g.addColorStop(1, 'rgba(' + shadowRgb + ',' + (0.14 * strength) + ')');
+    ctx.save();
+    tracePoly(pts); ctx.clip();
+    ctx.fillStyle = g;
+    tracePoly(pts); ctx.fill();
+    ctx.restore();
+  }
+
+  // Gentle dome on the green: a soft radial highlight at its crown so the putting
+  // surface reads as a raised mound rather than a flat sticker.
+  function greenDome(pts, lightRgb, shadowRgb) {
+    if (!pts || pts.length < 3) return;
+    var b = polyBounds(pts);
+    var r = pos(Math.max(b.w, b.h) * 0.62, 2);
+    var cx = b.cx + LIGHT.x * b.w * 0.10;
+    var cy = b.cy + LIGHT.y * b.h * 0.10;
+    var g = ctx.createRadialGradient(cx, cy, pos(r * 0.12, 0.5), b.cx, b.cy, r);
+    g.addColorStop(0, 'rgba(' + lightRgb + ',0.22)');
+    g.addColorStop(0.55, 'rgba(' + lightRgb + ',0.05)');
+    g.addColorStop(1, 'rgba(' + shadowRgb + ',0.16)');
+    ctx.save();
+    tracePoly(pts); ctx.clip();
+    ctx.fillStyle = g;
+    tracePoly(pts); ctx.fill();
+    ctx.restore();
+  }
+
+  // Tree depth: elongated ground shadow + lit rim on the sun side. The base
+  // renderer already drew the flat canopy; we only add grounding + a highlight.
+  function treeDepth(trees, shadowRgb, lightRgb) {
+    for (var i = 0; i < trees.length; i++) {
+      var t = trees[i];
+      var x = num(t.x, null), y = num(t.y, null);
+      if (x === null || y === null) continue;
+      var r = pos((t.r || 16) * (t.scale || 1), 2);
+      // cast shadow
       ctx.save();
-      ctx.globalAlpha = 0.16;
-      ctx.fillStyle = '#0a1f0c';
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = 'rgba(' + shadowRgb + ',1)';
       ctx.beginPath();
-      ctx.ellipse(x - LIGHT.x * r * 0.9, y - LIGHT.y * r * 0.45 + r * 0.35,
-                  r * 1.05, r * 0.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(x - LIGHT.x * r * 0.8, y - LIGHT.y * r * 0.4 + r * 0.4,
+                  pos(r * 1.0, 1), pos(r * 0.46, 0.5), 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-      // Lit rim crescent on the sun side.
+      // lit rim
       ctx.save();
-      pathClipCircle(ctx, x, y, r);
-      const lg = ctx.createRadialGradient(
-        x + LIGHT.x * r * 0.6, y + LIGHT.y * r * 0.6, r * 0.15,
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+      var g = ctx.createRadialGradient(
+        x + LIGHT.x * r * 0.55, y + LIGHT.y * r * 0.55, pos(r * 0.12, 0.4),
         x, y, r);
-      lg.addColorStop(0, 'rgba(190,235,150,0.38)');
-      lg.addColorStop(0.6, 'rgba(120,190,95,0.0)');
-      lg.addColorStop(1, 'rgba(8,28,12,0.28)');
-      ctx.fillStyle = lg;
+      g.addColorStop(0, 'rgba(' + lightRgb + ',0.34)');
+      g.addColorStop(0.6, 'rgba(' + lightRgb + ',0)');
+      g.addColorStop(1, 'rgba(' + shadowRgb + ',0.30)');
+      ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+    }
+  }
+
+  // ====================================================================
+  // drawCourse wrapper
+  // ====================================================================
+  var baseCourse = drawCourse;
+  drawCourse = function drawCourseEnhanced(c, hole, W, H, timeMs, showSlope) {
+    var t = tint(hole);
+    var shadowRgb = t[0], lightRgb = t[1];
+
+    // (1) grounding shadows UNDER the raised features
+    safe(function () {
+      if (hole && hole.bunkers) for (var i = 0; i < hole.bunkers.length; i++)
+        groundShadow(hole.bunkers[i], shadowRgb, 7, 0.20, 5);
+      if (hole && hole.greenRing) groundShadow(hole.greenRing, shadowRgb, 11, 0.22, 7);
     });
-  }
 
-  function pathClipCircle(ctx, x, y, r) {
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.clip();
-  }
+    // (2) the REAL render — always runs, untouched
+    baseCourse(c, hole, W, H, timeMs, showSlope);
+
+    // (3) depth passes OVER the surfaces
+    safe(function () { if (hole && hole.fairway) surfaceSheen(hole.fairway, shadowRgb, lightRgb, 1); });
+    safe(function () { if (hole && hole.green) { surfaceSheen(hole.green, shadowRgb, lightRgb, 1.1); greenDome(hole.green, lightRgb, shadowRgb); } });
+    safe(function () { if (hole && hole.trees) treeDepth(hole.trees, shadowRgb, lightRgb); });
+  };
 
   // ====================================================================
-  // drawBall wrapper: flight-responsive shadow + a soft 3D sphere shade.
-  // The engine sets ball.visualScale = 1 + arc*height during flight; we read
-  // that to recover apparent height so the shadow can detach and soften.
+  // drawBall wrapper — flight-responsive shadow + spherical shading
   // ====================================================================
-  const drawBallBeforeEnhance = drawBall;
+  var baseBall = drawBall;
   drawBall = function drawBallEnhanced() {
-    const vs = (ball && ball.visualScale) || 1;
-    // Apparent height: how far above 1.0 the ball has scaled, normalised.
-    const height = clamp(vs - 1, 0, 1.2);
-    const aloft = height > 0.001;
-
-    if (ball && !ball.holed) {
-      // Ground shadow: offset toward the light's opposite as the ball rises,
-      // larger and fainter the higher it is. When grounded it sits tight.
-      const shX = ball.x - LIGHT.x * (10 + height * 46);
-      const shY = ball.y - LIGHT.y * (10 + height * 46);
-      const shR = ball.radius * (1.05 + height * 1.7);
-      ctx.save();
-      ctx.globalAlpha = aloft ? clamp(0.30 - height * 0.16, 0.08, 0.30) : 0.30;
-      ctx.fillStyle = 'rgba(6,22,10,1)';
-      ctx.beginPath();
-      ctx.ellipse(aloft ? shX : ball.x, aloft ? shY : ball.y + 5,
-                  shR, shR * 0.55, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+    // sanity: if ball isn't ready, defer entirely to base
+    if (!ball || !isFinite(ball.x) || !isFinite(ball.y) || !(ball.radius > 0)) {
+      return baseBall();
     }
 
-    // Let the existing (customisation-aware) ball renderer draw the ball body,
-    // skin, and seam exactly as before — but suppress its own flat shadow by
-    // covering nothing; we simply draw our richer shadow first (above) and then
-    // overlay a spherical shade after for a rounder look.
-    drawBallBeforeEnhance();
+    var vs = pos(num(ball.visualScale, 1), 0.2);
+    var height = CLAMP(vs - 1, 0, 1.2);
+    var aloft = height > 0.001;
 
-    if (ball && !ball.holed) {
-      // Spherical shading: highlight toward the sun, terminator away from it.
-      const rad = ball.radius * vs;
+    // (1) ground shadow first, so the ball sits on top of it
+    safe(function () {
+      if (ball.holed) return;
+      var sx = aloft ? (ball.x - LIGHT.x * (10 + height * 46)) : ball.x;
+      var sy = aloft ? (ball.y - LIGHT.y * (10 + height * 46)) : ball.y + 4.5;
+      var sr = pos(ball.radius * (1.0 + height * 1.7), 0.5);
       ctx.save();
+      ctx.globalAlpha = aloft ? CLAMP(0.30 - height * 0.16, 0.08, 0.30) : 0.30;
+      ctx.fillStyle = 'rgba(6,20,10,1)';
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y, rad, 0, Math.PI * 2);
-      ctx.clip();
-      const g = ctx.createRadialGradient(
-        ball.x + LIGHT.x * rad * 0.7, ball.y + LIGHT.y * rad * 0.7, rad * 0.1,
+      ctx.ellipse(sx, sy, sr, pos(sr * 0.55, 0.4), 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // (2) the REAL ball (skin/seam/customisation) — always runs
+    baseBall();
+
+    // (3) spherical shading overlay for roundness
+    safe(function () {
+      if (ball.holed) return;
+      var rad = pos(ball.radius * vs, 0.5);
+      ctx.save();
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, rad, 0, Math.PI * 2); ctx.clip();
+      var g = ctx.createRadialGradient(
+        ball.x + LIGHT.x * rad * 0.7, ball.y + LIGHT.y * rad * 0.7, pos(rad * 0.1, 0.05),
         ball.x, ball.y, rad);
-      g.addColorStop(0, 'rgba(255,255,255,0.55)');
-      g.addColorStop(0.45, 'rgba(255,255,255,0.0)');
-      g.addColorStop(1, 'rgba(10,20,30,0.30)');
+      g.addColorStop(0, 'rgba(255,255,255,0.50)');
+      g.addColorStop(0.45, 'rgba(255,255,255,0)');
+      g.addColorStop(1, 'rgba(8,16,26,0.28)');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(ball.x, ball.y, rad, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
-    }
+    });
   };
 
   window.graphicsEnhanceLoaded = true;
