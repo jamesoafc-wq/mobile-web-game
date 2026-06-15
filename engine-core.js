@@ -542,6 +542,34 @@ function stopBallOnGreenIfSlow() {
 }
 
 // ---- HUD + penalties --------------------------------------------------------
+// Score-phrase helpers. These originally lived in active-tuning.js (which this
+// module replaced) and are consumed by later HUD layers such as ui-polish.js
+// via getTopRightScoreText(). Reproduced verbatim so those layers keep working.
+function getScorePhrase(scoreToPar) {
+  if (scoreToPar <= -3) return 'For Albatross';
+  if (scoreToPar === -2) return 'For Eagle';
+  if (scoreToPar === -1) return 'For Birdie';
+  if (scoreToPar === 0) return 'For Par';
+  if (scoreToPar === 1) return 'For Bogey';
+  if (scoreToPar === 2) return 'For Double Bogey';
+  if (scoreToPar === 3) return 'For Triple Bogey';
+  return `For +${scoreToPar}`;
+}
+function getCurrentScorePhrase(scoreToPar) {
+  if (scoreToPar <= -3) return 'Albatross';
+  if (scoreToPar === -2) return 'Eagle';
+  if (scoreToPar === -1) return 'Birdie';
+  if (scoreToPar === 0) return 'Par';
+  if (scoreToPar === 1) return 'Bogey';
+  if (scoreToPar === 2) return 'Double Bogey';
+  if (scoreToPar === 3) return 'Triple Bogey';
+  return `+${scoreToPar}`;
+}
+function getTopRightScoreText() {
+  if (ball && ball.holed) return getCurrentScorePhrase(strokes - hole.par);
+  return getScorePhrase((strokes + 1) - hole.par);
+}
+
 function updateClubButtons() {
   clubButtons.forEach(btn => btn.classList.toggle('selected', btn.dataset.club === selectedClub));
 }
