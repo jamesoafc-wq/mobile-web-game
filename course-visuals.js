@@ -87,6 +87,99 @@
   };
   function pal(hole) { return T[hole.courseTheme] || T.willow; }
 
+  // ============================ COASTLINE (coral) ==========================
+  // Some coral holes run along the shore, others turn inland — giving the
+  // course a real sense of geography. Keyed by hole.id so it's stable per hole.
+  // side: 'right' | 'left' | null (no coast). Purely cosmetic background in the
+  // rough margin; never overlaps playable surfaces or affects lie detection.
+  var CORAL_COAST = {
+    // FRONT NINE — head out along the shore, turn inland, come back to the water
+    1: 'right', 2: 'right',          // open along the shore
+    3: null, 4: null, 5: null,       // inland stretch
+    6: 'left', 7: 'left',            // back to the water on the other side
+    8: 'right', 9: 'right',          // finish the nine by the coast (near clubhouse)
+    // BACK NINE — push inland again, then a dramatic coastal run for the finish
+    10: 'left', 11: 'left',          // tenth heads back out, water on the left
+    12: null, 13: null,              // turn inland
+    14: 'right', 15: 'right',        // signature coastal stretch
+    16: null,                        // one last inland hole
+    17: 'left', 18: 'left'           // finishing holes sweep along the shore
+  };
+
+  function drawCoastline(ctx, hole, W, H, p, timeMs) {
+    if (hole.courseTheme !== 'coral') return;
+    var side = CORAL_COAST[hole.id];
+    if (!side) return;
+
+    // The coast occupies the outer ~26% of the rough on the chosen side: an
+    // inner wet-sand beach, then the sea fading out to the edge, with an
+    // animated surf line where they meet.
+    var beachW = W * 0.13;     // beach band width
+    var seaW = W * 0.22;       // sea band width beyond the beach
+    var edgeX, beachInner, seaOuter, dir;
+    if (side === 'right') {
+      dir = 1;
+      seaOuter = W;                       // sea hugs the right edge
+      var seaInner = W - seaW;
+      beachInner = seaInner - beachW;     // beach is inland of the sea
+      edgeX = seaInner;
+    } else {
+      dir = -1;
+      seaOuter = 0;
+      var seaInnerL = seaW;
+      beachInner = seaInnerL + beachW;
+      edgeX = seaInnerL;
+    }
+
+    ctx.save();
+    // --- sea ---
+    var sx0 = (side === 'right') ? (W - seaW) : 0;
+    var seaGrad = (side === 'right')
+      ? lin(ctx, W - seaW, 0, W, 0, [[0, '#2fd0d8'], [1, '#1488ac']])
+      : lin(ctx, seaW, 0, 0, 0, [[0, '#2fd0d8'], [1, '#1488ac']]);
+    ctx.fillStyle = seaGrad;
+    ctx.fillRect(sx0, 0, seaW, H);
+    // animated surf highlights
+    ctx.strokeStyle = 'rgba(255,255,255,0.20)';
+    ctx.lineWidth = 1.1;
+    for (var y = 0; y < H; y += 11) {
+      ctx.beginPath();
+      for (var x = sx0 - 6; x <= sx0 + seaW + 6; x += 8) {
+        var wv = Math.sin((x + timeMs * 0.05) * 0.07 + y * 0.2) * 2.2;
+        if (x === sx0 - 6) ctx.moveTo(x, y + wv); else ctx.lineTo(x, y + wv);
+      }
+      ctx.stroke();
+    }
+    // --- beach (wet sand fading to dry toward the fairway) ---
+    var bx0 = (side === 'right') ? beachInner : (seaW);
+    var beachGrad = (side === 'right')
+      ? lin(ctx, beachInner, 0, edgeX, 0, [[0, 'rgba(243,230,190,0)'], [0.4, '#f3e6be'], [1, '#efdcb0']])
+      : lin(ctx, beachInner, 0, edgeX, 0, [[0, 'rgba(243,230,190,0)'], [0.4, '#f3e6be'], [1, '#efdcb0']]);
+    ctx.fillStyle = beachGrad;
+    if (side === 'right') ctx.fillRect(beachInner, 0, edgeX - beachInner + seaW * 0.18, H);
+    else ctx.fillRect(seaW * 0.82, 0, beachInner - seaW * 0.82, H);
+    // --- surf foam line where sea meets sand ---
+    var foamX = edgeX;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    for (var fy = 0; fy <= H; fy += 6) {
+      var fwv = Math.sin(fy * 0.09 + timeMs * 0.0016) * 6 * dir + Math.sin(fy * 0.23 + timeMs * 0.0026) * 2.5;
+      var fx = foamX + fwv;
+      if (fy === 0) ctx.moveTo(fx, fy); else ctx.lineTo(fx, fy);
+    }
+    ctx.stroke();
+    // scattered shells/pebbles on the beach
+    var sr = rng(holeSeed(hole) + 71);
+    for (var i = 0; i < 14; i++) {
+      var px = (side === 'right') ? (beachInner + sr() * (edgeX - beachInner)) : (seaW + sr() * (beachInner - seaW));
+      var py = sr() * H;
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath(); ctx.arc(px, py, 1.3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // ============================ ROUGH / BACKDROP ===========================
   function drawRough(ctx, W, H, p, theme, timeMs) {
     // vertical gradient base
@@ -328,6 +421,7 @@
     var p = pal(hole);
     try {
       drawRough(ctx, W, H, p, theme, timeMs);
+      drawCoastline(ctx, hole, W, H, p, timeMs);
       drawWater(ctx, hole, timeMs, p, theme);
       drawFairway(ctx, hole, p, theme);
       fillPoly(ctx, hole.tee, p.fringe, 'rgba(44,87,42,0.5)', 2);
