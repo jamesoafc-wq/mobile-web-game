@@ -1,6 +1,6 @@
 // v0.54 tighter putting zoom and course-themed canvas overscan fill.
 
-const PUTTING_ZOOM_V054 = 1.9;
+const PUTTING_ZOOM_V054 = 2.5;
 
 if (typeof originalPuttingCameraV053 === 'function') {
   originalPuttingCameraV053 = function originalPuttingCameraV054() {

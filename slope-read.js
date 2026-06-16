@@ -166,21 +166,22 @@
     var path = simulatePuttPath(hole, ball.x, ball.y, drag.angle, drag.power, lie);
     if (path.length < 2) return;
 
+    // Show only the EARLY part of the roll — enough to read the initial break
+    // direction, but not a full autopilot to the cup. The player still has to
+    // judge pace and how the line continues to curve. Fades out along its length.
+    var show = Math.max(2, Math.floor(path.length * 0.45));
     ctx.save();
-    ctx.lineWidth = 1.8;
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.setLineDash([5, 5]);
-    ctx.beginPath();
-    ctx.moveTo(path[0].x, path[0].y);
-    for (var i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
-    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 6]);
+    for (var i = 1; i < show; i++) {
+      var a = 0.7 * (1 - i / show);                 // fade toward the end
+      ctx.strokeStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.moveTo(path[i - 1].x, path[i - 1].y);
+      ctx.lineTo(path[i].x, path[i].y);
+      ctx.stroke();
+    }
     ctx.setLineDash([]);
-    // endpoint marker
-    var end = path[path.length - 1];
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.beginPath();
-    ctx.arc(end.x, end.y, 2.6, 0, Math.PI * 2);
-    ctx.fill();
     ctx.restore();
   }
 
