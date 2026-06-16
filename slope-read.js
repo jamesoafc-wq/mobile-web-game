@@ -70,8 +70,6 @@
     var range = (maxH - minH) || 1;
     for (var i = 0; i < hs.length; i++) {
       var c = hs[i];
-      // leave a clear ring around the cup so the hole/flag stays easy to find
-      if (dist(c.x, c.y, hole.cup.x, hole.cup.y) < 13) continue;
       var s = GF.greenSlope(hole, c.x, c.y);   // downhill direction + strength
       var steep = clamp(s.strength / 1.6, 0, 1);
       // 1) HEIGHT SHADE — dark green (high) to light green (low). Always drawn so
@@ -211,13 +209,46 @@
   }
 
   // ---- compose ---------------------------------------------------------------
+  // A clean cup marker drawn ON TOP of the heat-map so the hole is always
+  // obvious without hacking gaps into the grid: a soft halo to lift it off the
+  // shaded green, a crisp dark hole with a white rim, then the flag.
+  function drawCupOnTop(ctx, hole, timeMs) {
+    var cx = hole.cup.x, cy = hole.cup.y;
+    ctx.save();
+    // soft halo so the hole pops against any shade
+    var halo = ctx.createRadialGradient(cx, cy, 1, cx, cy, 16);
+    halo.addColorStop(0, 'rgba(255,255,255,0.0)');
+    halo.addColorStop(0.55, 'rgba(255,255,255,0.0)');
+    halo.addColorStop(0.75, 'rgba(255,255,255,0.30)');
+    halo.addColorStop(1, 'rgba(255,255,255,0.0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(cx, cy, 16, 0, Math.PI * 2); ctx.fill();
+    // white rim + dark hole
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath(); ctx.arc(cx, cy, 4.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#0d1b12';
+    ctx.beginPath(); ctx.arc(cx, cy, 3.1, 0, Math.PI * 2); ctx.fill();
+    // flagstick + flag (gentle wave)
+    var sway = Math.sin((timeMs || 0) * 0.003) * 2;
+    ctx.strokeStyle = 'rgba(245,250,245,0.95)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - 30); ctx.stroke();
+    ctx.fillStyle = '#e23b3b';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 30);
+    ctx.quadraticCurveTo(cx + 9 + sway, cy - 27, cx + 14 + sway, cy - 24);
+    ctx.quadraticCurveTo(cx + 9 + sway, cy - 23, cx, cy - 21);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
   drawSlopeRead = function drawSlopeReadVisual(ctx, hole, timeMs) {
     if (!hole || !hole.green || !window.GreenField) return;
     try { drawHeatMap(ctx, hole, timeMs); } catch (e) {}
     try { drawArrows(ctx, hole, timeMs); } catch (e) {}
     try { drawPuttLine(ctx, hole); } catch (e) {}
-    // Redraw the cup + flag on top so the hole is never buried under the map.
-    try { if (typeof drawCupAndFlag === 'function') drawCupAndFlag(ctx, hole); } catch (e) {}
+    // a clean cup marker on top so the hole is always clearly visible
+    try { drawCupOnTop(ctx, hole, timeMs); } catch (e) {}
   };
 
   window.slopeReadVisualLoaded = true;
