@@ -114,8 +114,8 @@
     // The coast occupies the outer ~26% of the rough on the chosen side: an
     // inner wet-sand beach, then the sea fading out to the edge, with an
     // animated surf line where they meet.
-    var beachW = W * 0.13;     // beach band width
-    var seaW = W * 0.22;       // sea band width beyond the beach
+    var beachW = W * 0.075;    // beach band width
+    var seaW = W * 0.125;      // sea band width beyond the beach (~1/5 total)
     var edgeX, beachInner, seaOuter, dir;
     if (side === 'right') {
       dir = 1;
