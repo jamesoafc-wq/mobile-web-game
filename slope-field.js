@@ -71,14 +71,52 @@
       pts.push({ x: zn.x + ux * reach * 0.7, y: zn.y + uy * reach * 0.7, h: -amp });
     }
 
-    // A subtle overall green tilt toward the front (downhill toward the player)
-    // gives every green a baseline read even if it had no zones. Derived from the
-    // green's own bounds so it scales with green size.
+    // Per-hole GREEN ARCHETYPE for variety. Instead of every green tilting
+    // back-to-front the same way, each hole gets one of several characters at a
+    // varying steepness, chosen deterministically from its id + cup so it's
+    // stable. This makes greens read and play differently — some gentle, some
+    // with a ridge or bowl, a few genuinely steep.
     var b = polyBoundsLocal(hole.green);
     if (b) {
-      var tiltAmp = (b.h) * 0.06; // gentle
-      pts.push({ x: b.cx, y: b.minY, h: +tiltAmp * 0.5 }); // back slightly high
-      pts.push({ x: b.cx, y: b.maxY, h: -tiltAmp * 0.5 }); // front slightly low
+      var hid = (hole.id || 1);
+      var arche = hid % 5;                 // 0..4 archetype selector
+      var steepTier = (hid * 7) % 3;        // 0 gentle, 1 medium, 2 steep
+      var k = (b.h) * (steepTier === 0 ? 0.06 : steepTier === 1 ? 0.11 : 0.17);
+      var kx = (b.w) * (steepTier === 0 ? 0.05 : steepTier === 1 ? 0.10 : 0.15);
+
+      if (arche === 0) {
+        // back-to-front tilt (classic)
+        pts.push({ x: b.cx, y: b.minY, h: +k });
+        pts.push({ x: b.cx, y: b.maxY, h: -k });
+      } else if (arche === 1) {
+        // diagonal tilt (high back-right, low front-left)
+        pts.push({ x: b.maxX, y: b.minY, h: +k });
+        pts.push({ x: b.minX, y: b.maxY, h: -k });
+      } else if (arche === 2) {
+        // RIDGE / spine down the middle: high centre line, low both sides
+        pts.push({ x: b.cx, y: b.cy, h: +k * 1.1 });
+        pts.push({ x: b.minX, y: b.cy, h: -k });
+        pts.push({ x: b.maxX, y: b.cy, h: -k });
+      } else if (arche === 3) {
+        // BOWL: low centre (gathers to the middle), high edges — receptive green
+        pts.push({ x: b.cx, y: b.cy, h: -k * 1.2 });
+        pts.push({ x: b.minX, y: b.minY, h: +k });
+        pts.push({ x: b.maxX, y: b.minY, h: +k });
+        pts.push({ x: b.minX, y: b.maxY, h: +k });
+        pts.push({ x: b.maxX, y: b.maxY, h: +k });
+      } else {
+        // CROWN / turtleback: high centre, falls away all around — hard to hold
+        pts.push({ x: b.cx, y: b.cy, h: +k * 1.3 });
+        pts.push({ x: b.minX, y: b.minY, h: -k });
+        pts.push({ x: b.maxX, y: b.minY, h: -k });
+        pts.push({ x: b.minX, y: b.maxY, h: -k });
+        pts.push({ x: b.maxX, y: b.maxY, h: -k });
+      }
+      // a gentle cross-tilt on top for extra character (varies by hole)
+      if (steepTier > 0) {
+        pts.push({ x: b.minX, y: b.cy, h: (hid % 2 ? +1 : -1) * kx * 0.5 });
+        pts.push({ x: b.maxX, y: b.cy, h: (hid % 2 ? -1 : +1) * kx * 0.5 });
+      }
     }
 
     return { pts: pts, bounds: b };
