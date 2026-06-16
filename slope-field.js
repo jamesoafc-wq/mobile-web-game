@@ -71,51 +71,48 @@
       pts.push({ x: zn.x + ux * reach * 0.7, y: zn.y + uy * reach * 0.7, h: -amp });
     }
 
-    // Per-hole GREEN ARCHETYPE for variety. Instead of every green tilting
-    // back-to-front the same way, each hole gets one of several characters at a
-    // varying steepness, chosen deterministically from its id + cup so it's
-    // stable. This makes greens read and play differently — some gentle, some
-    // with a ridge or bowl, a few genuinely steep.
+    // Per-hole GREEN ARCHETYPE for variety. Real greens are mostly broad tilts
+    // with subtle secondary movement — NOT radial basins — so these are
+    // tilt-dominant and gentle, chosen deterministically from the hole id.
     var b = polyBoundsLocal(hole.green);
     if (b) {
       var hid = (hole.id || 1);
-      var arche = hid % 5;                 // 0..4 archetype selector
+      var arche = hid % 5;
       var steepTier = (hid * 7) % 3;        // 0 gentle, 1 medium, 2 steep
-      var k = (b.h) * (steepTier === 0 ? 0.06 : steepTier === 1 ? 0.11 : 0.17);
-      var kx = (b.w) * (steepTier === 0 ? 0.05 : steepTier === 1 ? 0.10 : 0.15);
+      var k = (b.h) * (steepTier === 0 ? 0.045 : steepTier === 1 ? 0.075 : 0.11);
+      var kx = (b.w) * (steepTier === 0 ? 0.04 : steepTier === 1 ? 0.065 : 0.095);
 
       if (arche === 0) {
-        // back-to-front tilt (classic)
+        // back-to-front tilt (classic, most common)
         pts.push({ x: b.cx, y: b.minY, h: +k });
         pts.push({ x: b.cx, y: b.maxY, h: -k });
       } else if (arche === 1) {
-        // diagonal tilt (high back-right, low front-left)
+        // diagonal tilt (high back-right -> low front-left)
         pts.push({ x: b.maxX, y: b.minY, h: +k });
         pts.push({ x: b.minX, y: b.maxY, h: -k });
       } else if (arche === 2) {
-        // RIDGE / spine down the middle: high centre line, low both sides
-        pts.push({ x: b.cx, y: b.cy, h: +k * 1.1 });
-        pts.push({ x: b.minX, y: b.cy, h: -k });
-        pts.push({ x: b.maxX, y: b.cy, h: -k });
+        // gentle RIDGE expressed as broad tilts away from a centre LINE plus a
+        // mild back-to-front fall — drifts to a side, doesn't funnel to a point
+        pts.push({ x: b.minX, y: b.cy, h: +k * 0.55 });
+        pts.push({ x: b.maxX, y: b.cy, h: -k * 0.55 });
+        pts.push({ x: b.cx, y: b.minY, h: +k * 0.4 });
+        pts.push({ x: b.cx, y: b.maxY, h: -k * 0.4 });
       } else if (arche === 3) {
-        // BOWL: low centre (gathers to the middle), high edges — receptive green
-        pts.push({ x: b.cx, y: b.cy, h: -k * 1.2 });
+        // SADDLE: high back corner, low opposite front corner, mild counter on
+        // the other diagonal — two-way movement, no central basin
         pts.push({ x: b.minX, y: b.minY, h: +k });
-        pts.push({ x: b.maxX, y: b.minY, h: +k });
-        pts.push({ x: b.minX, y: b.maxY, h: +k });
-        pts.push({ x: b.maxX, y: b.maxY, h: +k });
-      } else {
-        // CROWN / turtleback: high centre, falls away all around — hard to hold
-        pts.push({ x: b.cx, y: b.cy, h: +k * 1.3 });
-        pts.push({ x: b.minX, y: b.minY, h: -k });
-        pts.push({ x: b.maxX, y: b.minY, h: -k });
-        pts.push({ x: b.minX, y: b.maxY, h: -k });
         pts.push({ x: b.maxX, y: b.maxY, h: -k });
+        pts.push({ x: b.maxX, y: b.minY, h: +k * 0.35 });
+        pts.push({ x: b.minX, y: b.maxY, h: -k * 0.35 });
+      } else {
+        // SHELF / tier: higher back, lower front, slight side tilt
+        pts.push({ x: b.minX, y: b.minY, h: +k });
+        pts.push({ x: b.maxX, y: b.minY, h: +k * 0.85 });
+        pts.push({ x: b.cx, y: b.maxY, h: -k });
       }
-      // a gentle cross-tilt on top for extra character (varies by hole)
-      if (steepTier > 0) {
-        pts.push({ x: b.minX, y: b.cy, h: (hid % 2 ? +1 : -1) * kx * 0.5 });
-        pts.push({ x: b.maxX, y: b.cy, h: (hid % 2 ? -1 : +1) * kx * 0.5 });
+      if (steepTier === 2) {
+        pts.push({ x: b.minX, y: b.cy, h: (hid % 2 ? +1 : -1) * kx * 0.35 });
+        pts.push({ x: b.maxX, y: b.cy, h: (hid % 2 ? -1 : +1) * kx * 0.35 });
       }
     }
 
@@ -155,7 +152,7 @@
       var d2 = dx * dx + dy * dy;
       // softening term avoids singularity at a control point and controls how
       // "peaky" each point is; larger => smoother surface.
-      var w = 1 / (d2 + 220);
+      var w = 1 / (d2 + 650);
       num += w * pts[i].h;
       den += w;
     }

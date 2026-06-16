@@ -70,6 +70,8 @@
     var range = (maxH - minH) || 1;
     for (var i = 0; i < hs.length; i++) {
       var c = hs[i];
+      // leave a clear ring around the cup so the hole/flag stays easy to find
+      if (dist(c.x, c.y, hole.cup.x, hole.cup.y) < 13) continue;
       var s = GF.greenSlope(hole, c.x, c.y);   // downhill direction + strength
       var steep = clamp(s.strength / 1.6, 0, 1);
       // 1) HEIGHT SHADE — dark green (high) to light green (low). Always drawn so
@@ -214,6 +216,8 @@
     try { drawHeatMap(ctx, hole, timeMs); } catch (e) {}
     try { drawArrows(ctx, hole, timeMs); } catch (e) {}
     try { drawPuttLine(ctx, hole); } catch (e) {}
+    // Redraw the cup + flag on top so the hole is never buried under the map.
+    try { if (typeof drawCupAndFlag === 'function') drawCupAndFlag(ctx, hole); } catch (e) {}
   };
 
   window.slopeReadVisualLoaded = true;
