@@ -57,9 +57,9 @@
       water: ['#2f7fae', '#1f5f86'], waterSheen: 'rgba(220,245,255,0.18)'
     },
     coral: {
-      roughTop: '#2bbf93', roughBot: '#159b78', blade: 'rgba(255,255,255,0.06)', flower: ['#ff8fb0', '#ffd36b', '#ffffff'],
-      fairway: '#7ce0a0', fairway2: '#8ee9ad', stripe: 'rgba(255,255,255,0.07)',
-      fringe: '#89e6a6', green: '#a8efb0', greenSheen: 'rgba(235,255,235,0.18)',
+      roughTop: '#4f9e5e', roughBot: '#3a8049', blade: 'rgba(225,245,180,0.07)', flower: ['#ff9ab0', '#ffd36b', '#fff3c4'],
+      fairway: '#86cf6e', fairway2: '#95d97c', stripe: 'rgba(255,255,255,0.06)',
+      fringe: '#8fd277', green: '#a6e081', greenSheen: 'rgba(240,255,220,0.16)',
       sand: '#fbeec9', sandEdge: 'rgba(180,150,90,0.5)',
       water: ['#2fd0d8', '#1aa7c4'], waterSheen: 'rgba(255,255,255,0.22)', reef: 'rgba(255,170,120,0.22)'
     },
@@ -114,8 +114,25 @@
         ctx.fillStyle = 'rgba(6,26,14,0.10)';
         ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
       }
+    } else if (theme === 'coral') {
+      // lush tropical floor: darker foliage clumps + occasional warm sandy patches
+      var cr = rng(41);
+      for (var ci = 0; ci < 70; ci++) {
+        var cbx = cr() * W, cby = cr() * H, cbr = 6 + cr() * 18;
+        ctx.fillStyle = 'rgba(28,90,52,0.16)';
+        ctx.beginPath(); ctx.arc(cbx, cby, cbr, 0, Math.PI * 2); ctx.fill();
+      }
+      for (var cj = 0; cj < 16; cj++) {
+        var csx = cr() * W, csy = cr() * H, csr = 10 + cr() * 22;
+        ctx.fillStyle = 'rgba(232,214,160,0.10)';
+        ctx.beginPath(); ctx.ellipse(csx, csy, csr, csr * 0.6, cr() * 3, 0, Math.PI * 2); ctx.fill();
+      }
+      for (var chb = 0; chb < 50; chb++) {
+        ctx.fillStyle = p.blade;
+        ctx.fillRect(cr() * W, cr() * H, 7, 2);
+      }
     } else {
-      // soft mown-blade flecks (willow/coral/silver)
+      // soft mown-blade flecks (willow/silver)
       for (var yy = -8; yy < H + 8; yy += 11) {
         for (var xx = -8; xx < W + 8; xx += 14) {
           var seed = (xx * 17 + yy * 31) % 19;
@@ -125,9 +142,9 @@
       }
     }
 
-    // willow & coral & silver get a sprinkling of wildflowers/sparkle in the rough
-    if (theme === 'willow' || theme === 'coral' || theme === 'silver') {
-      var fr = rng(theme === 'willow' ? 7 : theme === 'coral' ? 13 : 23);
+    // willow & silver get a sprinkling of wildflowers/sparkle in the rough
+    if (theme === 'willow' || theme === 'silver') {
+      var fr = rng(theme === 'willow' ? 7 : 23);
       for (var f = 0; f < 70; f++) {
         var fx = fr() * W, fy = fr() * H;
         ctx.fillStyle = p.flower[(f % p.flower.length)];

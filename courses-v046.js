@@ -217,9 +217,41 @@ function drawThemedGreenV046(ctx, hole, theme) {
 
 function drawPalmV046(ctx, e) {
   ctx.save(); ctx.translate(e.x, e.y); ctx.scale(e.scale || 1, e.scale || 1);
-  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(0, 18, 18, 7, 0, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#8a5e35'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 18); ctx.quadraticCurveTo(0, 0, 0, -18); ctx.stroke();
-  ['#1f8a55','#2fa366','#3dbb73'].forEach((c,i)=>{ ctx.fillStyle=c; for(let a=0;a<5;a++){ ctx.save(); ctx.rotate((a/5)*Math.PI*2 + i*.15); ctx.beginPath(); ctx.ellipse(0,-24,5,22,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }});
+  // ground shadow
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(2, 19, 16, 6, 0, 0, Math.PI*2); ctx.fill();
+  // side-on trunk: a gentle curve, with banding texture
+  ctx.strokeStyle = '#9a6b3c'; ctx.lineWidth = 5.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, 19); ctx.quadraticCurveTo(-3, 0, -2, -20); ctx.stroke();
+  ctx.strokeStyle = '#7d5430'; ctx.lineWidth = 5.5;
+  for (var ty = 14; ty > -18; ty -= 6) {
+    var tx = (ty > 0) ? (ty * -0.06) : (ty * -0.08);
+    ctx.beginPath(); ctx.moveTo(tx - 2.4, ty); ctx.lineTo(tx + 2.4, ty - 1.2); ctx.stroke();
+  }
+  var crownX = -2, crownY = -21;
+  // coconuts
+  ctx.fillStyle = '#6e4a26';
+  ctx.beginPath(); ctx.arc(crownX - 3, crownY + 3, 2.4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(crownX + 2, crownY + 4, 2.2, 0, Math.PI*2); ctx.fill();
+  // fronds: arc OUTWARD from the crown and droop at the tips (side-on fan)
+  var fronds = [-2.55, -1.95, -1.3, -0.55, -1.6, -2.25, -0.95];
+  var palette = ['#2fa366', '#3dbb73', '#1f8a55'];
+  for (var i = 0; i < fronds.length; i++) {
+    var ang = fronds[i];
+    var len = 20 + (i % 3) * 3;
+    var ex = crownX + Math.cos(ang) * len;
+    var ey = crownY + Math.sin(ang) * len + 6;        // +6 = droop at the tip
+    var mx = crownX + Math.cos(ang) * len * 0.5;
+    var my = crownY + Math.sin(ang) * len * 0.5 - 4;  // bow upward in the middle
+    ctx.strokeStyle = palette[i % palette.length];
+    ctx.lineWidth = 3.4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(crownX, crownY); ctx.quadraticCurveTo(mx, my, ex, ey); ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(20,80,45,0.5)';
+    for (var k = 0.35; k < 0.95; k += 0.3) {
+      var lx = crownX + (mx - crownX) * 2 * k * (1 - k) + (ex - crownX) * k * k;
+      var ly = crownY + (my - crownY) * 2 * k * (1 - k) + (ey - crownY) * k * k;
+      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 3, ly + 3); ctx.stroke();
+    }
+  }
   ctx.restore();
 }
 function drawCactusV046(ctx, e) {
