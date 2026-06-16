@@ -22,7 +22,7 @@
 (function () {
   'use strict';
 
-  var INTRO_MS = 4200;            // total flyover duration (slow + cinematic)
+  var INTRO_MS = 8400;            // total flyover duration (slow + cinematic)
   var intro = { active: false, start: 0, holeKey: null };
 
   function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
@@ -38,31 +38,40 @@
   function progress() { return ease((now() - intro.start) / INTRO_MS); }
 
   // ---- cinematic camera ----------------------------------------------------
-  // Fly from a tight view near the tee to a tight view near the green, then in
-  // the last beat pull back to the normal full view so the handoff is seamless.
+  // Two phases:
+  //   PHASE 1 (0 -> FLIGHT_END): hold a TIGHT zoom on the tee box, then fly at
+  //     that same tight zoom all the way up to the green (no zooming out yet, so
+  //     you never see high above the hole).
+  //   PHASE 2 (FLIGHT_END -> 1): parked over the green, pull back / zoom out to
+  //     the normal full-screen play view for a clean handoff.
+  var TIGHT_ZOOM = 1.7;
+  var FLIGHT_END = 0.62;     // fraction of the intro spent flying tee->green
   function introCamera() {
     var p = progress();
     var W = canvas.width, H = canvas.height;
     var tee = hole.start, cup = hole.cup;
+    var cam;
 
-    // focus point travels tee -> green along the hole
-    var travel = ease(Math.min(1, p / 0.8));         // reach green by 80% through
-    var fx = lerp(tee.x, cup.x, travel);
-    var fy = lerp(tee.y, cup.y, travel);
-
-    // zoom: start tight (1.7), ease toward the normal 1.0 over the flight, then
-    // in the final 20% blend fully to the play view.
-    var z = lerp(1.7, 1.05, travel);
-
-    var cam = { zoom: z, tx: W / 2 - fx * z, ty: H / 2 - fy * z };
-
-    if (p > 0.82) {
-      // blend into the normal play camera for a smooth handoff
-      var blend = ease((p - 0.82) / 0.18);
+    if (p <= FLIGHT_END) {
+      // PHASE 1 — fly tee -> green at constant tight zoom
+      var travel = ease(p / FLIGHT_END);
+      var fx = lerp(tee.x, cup.x, travel);
+      var fy = lerp(tee.y, cup.y, travel);
+      var z = TIGHT_ZOOM;
+      cam = { zoom: z, tx: W / 2 - fx * z, ty: H / 2 - fy * z };
+    } else {
+      // PHASE 2 — over the green, zoom out to the normal play view
+      var blend = ease((p - FLIGHT_END) / (1 - FLIGHT_END));
+      // start of phase 2 = tight view centred on the green
+      var fromZoom = TIGHT_ZOOM;
+      var fromTx = W / 2 - cup.x * fromZoom;
+      var fromTy = H / 2 - cup.y * fromZoom;
       var play = baseGetCamera();
-      cam.zoom = lerp(cam.zoom, play.zoom, blend);
-      cam.tx = lerp(cam.tx, play.tx, blend);
-      cam.ty = lerp(cam.ty, play.ty, blend);
+      cam = {
+        zoom: lerp(fromZoom, play.zoom, blend),
+        tx: lerp(fromTx, play.tx, blend),
+        ty: lerp(fromTy, play.ty, blend)
+      };
     }
     if (p >= 1) endIntro();
     return cam;
