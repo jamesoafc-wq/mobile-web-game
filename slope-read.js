@@ -54,10 +54,11 @@
   // (where putts gather) reads warm, higher ground reads cool.
   function drawHeatMap(ctx, hole, timeMs) {
     var b = bounds(hole.green);
-    var cell = 7;                          // heat-map resolution (px)
+    var cell = 9;                          // sampling resolution (px)
+    var t = (timeMs || 0) * 0.001;
     ctx.save();
     clipToGreen(ctx, hole);
-    // find height range across the green for normalisation
+    // height range across the green for normalisation
     var minH = Infinity, maxH = -Infinity, hs = [];
     for (var x = b.minX; x <= b.maxX; x += cell) {
       for (var y = b.minY; y <= b.maxY; y += cell) {
@@ -69,17 +70,39 @@
     var range = (maxH - minH) || 1;
     for (var i = 0; i < hs.length; i++) {
       var c = hs[i];
-      var s = GF.greenSlope(hole, c.x, c.y);
+      var s = GF.greenSlope(hole, c.x, c.y);   // downhill direction + strength
       var steep = clamp(s.strength / 1.6, 0, 1);
-      if (steep < 0.12) continue;                  // let gentle areas read as plain green
-      // emphasise contrast: ramp alpha so only meaningful slope shows, and the
-      // steepest breaks pop. Kept as a translucent overlay, not a repaint.
-      var emph = clamp((steep - 0.12) / 0.88, 0, 1);
-      var hn = (c.h - minH) / range;               // 0 low (gather) .. 1 high
-      var hue = 205 - hn * 195;                     // high=cyan/blue, low=red/orange
-      var alpha = 0.06 + emph * emph * 0.34;
-      ctx.fillStyle = 'hsla(' + hue.toFixed(0) + ',88%,52%,' + alpha.toFixed(3) + ')';
-      ctx.fillRect(c.x - cell / 2, c.y - cell / 2, cell + 0.6, cell + 0.6);
+      // 1) HEIGHT SHADE — dark green (high) to light green (low). Always drawn so
+      // the whole green reads as a smooth elevation map.
+      var hn = (c.h - minH) / range;           // 0 low .. 1 high
+      // dark (high): ~hsl(135,45%,22%)  ->  light (low): ~hsl(120,55%,72%)
+      var L = 70 - hn * 46;                     // lightness: high=low L (dark)
+      var S = 42 + hn * 12;
+      var Hh = 122 + hn * 12;
+      ctx.fillStyle = 'hsla(' + Hh.toFixed(0) + ',' + S.toFixed(0) + '%,' + L.toFixed(0) + '%,0.5)';
+      ctx.fillRect(c.x - cell / 2, c.y - cell / 2, cell + 0.7, cell + 0.7);
+
+      // 2) CONVEYOR FLOW — within each cell, draw a short moving dash travelling
+      // DOWNHILL, so slope direction is instantly readable. Speed & opacity scale
+      // with steepness; flat areas show little/no motion.
+      if (steep < 0.06) continue;
+      var mag = s.strength || 1e-6;
+      var ux = s.x / mag, uy = s.y / mag;       // unit downhill
+      // phase scrolls along the downhill direction, offset per cell so the dashes
+      // don't all march in lockstep
+      var speed = 0.6 + steep * 1.8;
+      var phase = (t * speed + (c.x * 0.05 + c.y * 0.07)) % 1;
+      var off = (phase - 0.5) * cell;           // travel within the cell
+      var fade = Math.sin(phase * Math.PI);     // fade in/out across the cell
+      var dx = c.x + ux * off, dy = c.y + uy * off;
+      var len = 2.4 + steep * 2.2;
+      ctx.strokeStyle = 'rgba(245,255,235,' + (0.12 + steep * 0.5) * fade + ')';
+      ctx.lineWidth = 1 + steep * 0.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(dx - ux * len, dy - uy * len);
+      ctx.lineTo(dx + ux * len, dy + uy * len);
+      ctx.stroke();
     }
     ctx.restore();
   }
