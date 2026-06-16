@@ -217,8 +217,8 @@ function drawThemedGreenV046(ctx, hole, theme) {
 
 function drawPalmV046(ctx, e) {
   ctx.save(); ctx.translate(e.x, e.y); ctx.scale(e.scale || 1, e.scale || 1);
-  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(0, 18, 18, 7, .2, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#8a5e35'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 18); ctx.quadraticCurveTo(4, 4, 0, -18); ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(0, 18, 18, 7, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#8a5e35'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 18); ctx.quadraticCurveTo(0, 0, 0, -18); ctx.stroke();
   ['#1f8a55','#2fa366','#3dbb73'].forEach((c,i)=>{ ctx.fillStyle=c; for(let a=0;a<5;a++){ ctx.save(); ctx.rotate((a/5)*Math.PI*2 + i*.15); ctx.beginPath(); ctx.ellipse(0,-24,5,22,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }});
   ctx.restore();
 }
