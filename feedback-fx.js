@@ -20,13 +20,23 @@
 (function () {
   'use strict';
 
+  // Neutralise the legacy boxed hole-result splash (drawHoleResultSplashV039) —
+  // it drew a dark dim + rounded box with e.g. "Birdie". This module now owns
+  // the score celebration (big text, no box), so silence the old one.
+  if (typeof drawHoleResultSplashV039 === 'function') {
+    drawHoleResultSplashV039 = function () {};
+  }
+  if (typeof holeResultSplashV039 !== 'undefined') {
+    try { holeResultSplashV039 = null; } catch (e) {}
+  }
+
   function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   function easeOut(t) { return 1 - Math.pow(1 - clamp01(t), 3); }
 
   // ---- 1) HIT FLASH ---------------------------------------------------------
   var flash = null;  // { start, zone }
-  var FLASH_MS = 620;
+  var FLASH_MS = 1100;
   var zoneColor = { sweet: '120,235,90', middle: '240,190,70', bad: '235,80,80' };
 
   if (typeof resolveSkillShot === 'function') {
@@ -46,8 +56,13 @@
     var t = (now() - flash.start) / FLASH_MS;
     if (t >= 1) { flash = null; return; }
     var rgb = zoneColor[flash.zone] || zoneColor.middle;
-    // pulse: quick rise, smooth fall
-    var a = Math.sin(clamp01(t) * Math.PI) * (flash.zone === 'sweet' ? 0.5 : flash.zone === 'bad' ? 0.42 : 0.32);
+    // envelope: fast rise (0-15%), hold (15-55%), smooth fade (55-100%)
+    var peak = (flash.zone === 'sweet' ? 0.5 : flash.zone === 'bad' ? 0.42 : 0.32);
+    var env;
+    if (t < 0.15) env = easeOut(t / 0.15);
+    else if (t < 0.55) env = 1;
+    else env = 1 - easeOut((t - 0.55) / 0.45);
+    var a = env * peak;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // edge vignette glow (strong at edges, clear in the centre so play stays visible)
@@ -82,7 +97,8 @@
         var toPar = strokes - hole.par;
         var text = (typeof getCurrentScorePhrase === 'function')
           ? getCurrentScorePhrase(toPar) : 'Hole out';
-        score = { start: now(), text: text.toUpperCase(), tier: tierFor(toPar) };
+        var sub = strokes + (strokes === 1 ? ' shot on a par ' : ' shots on a par ') + hole.par;
+        score = { start: now(), text: text.toUpperCase(), sub: sub, tier: tierFor(toPar) };
       } catch (e) {}
     }
     wasHoled = holed;
@@ -134,12 +150,16 @@
     ctx.fillStyle = fill;
     ctx.fillText(score.text, 0, 0);
 
-    // a small kicker line under great scores
-    if (tier >= 2) {
+    // subtitle line under the name on every score (e.g. "2 shots on a par 4"),
+    // same styling family — slightly transparent white, sized off the title.
+    if (score.sub) {
       ctx.shadowBlur = 6; ctx.shadowColor = 'rgba(0,0,0,0.55)';
-      ctx.font = '800 ' + (baseSize * 0.26).toFixed(0) + 'px system-ui';
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.fillText(tier >= 3 ? 'SENSATIONAL' : 'GREAT SHOT', 0, baseSize * 0.66);
+      ctx.lineWidth = Math.max(2, baseSize * 0.04);
+      ctx.strokeStyle = 'rgba(8,20,10,0.7)';
+      ctx.font = '800 ' + (baseSize * 0.28).toFixed(0) + 'px system-ui';
+      ctx.strokeText(score.sub, 0, baseSize * 0.62);
+      ctx.fillStyle = 'rgba(244,255,240,0.92)';
+      ctx.fillText(score.sub, 0, baseSize * 0.62);
     }
     ctx.restore();
   }
