@@ -55,21 +55,13 @@
       }
     }
 
-    // Convert each legacy slope zone into an uphill/downhill control-point pair.
-    var zones = hole.slopeZones || [];
-    for (var z = 0; z < zones.length; z++) {
-      var zn = zones[z];
-      var len = Math.hypot(zn.dx, zn.dy) || 1;
-      var ux = zn.dx / len, uy = zn.dy / len;        // downhill unit direction
-      // Scale: old strength ~0.0005–0.0008 acted as a per-frame shove. Turn that
-      // into a height delta over the zone's radius. Empirically *1.0e5 maps the
-      // old feel into height units that read well with the gradient model.
-      var amp = zn.strength * 4.0e4;                 // height units
-      var reach = (zn.rx + zn.ry) * 0.5;             // how far the tilt extends
-      // raised point behind the push (uphill), lowered point ahead (downhill)
-      pts.push({ x: zn.x - ux * reach * 0.7, y: zn.y - uy * reach * 0.7, h: +amp });
-      pts.push({ x: zn.x + ux * reach * 0.7, y: zn.y + uy * reach * 0.7, h: -amp });
-    }
+    // NOTE: the legacy `slopeZones` are intentionally NOT used here anymore.
+    // Each old zone converted into a strong uphill/downhill control-point pair,
+    // and summing several of them per green produced a lumpy "two hills around a
+    // central funnel" surface that played unrealistically. Real greens (see the
+    // reference) are smooth and broadly undulating, so we now build each green
+    // from a single clean archetype below. Authored `heightPoints` still win if a
+    // hole defines them explicitly.
 
     // Per-hole GREEN ARCHETYPE for variety. Real greens are mostly broad tilts
     // with subtle secondary movement — NOT radial basins — so these are
@@ -79,8 +71,8 @@
       var hid = (hole.id || 1);
       var arche = hid % 5;
       var steepTier = (hid * 7) % 3;        // 0 gentle, 1 medium, 2 steep
-      var k = (b.h) * (steepTier === 0 ? 0.045 : steepTier === 1 ? 0.075 : 0.11);
-      var kx = (b.w) * (steepTier === 0 ? 0.04 : steepTier === 1 ? 0.065 : 0.095);
+      var k = (b.h) * (steepTier === 0 ? 0.07 : steepTier === 1 ? 0.11 : 0.15);
+      var kx = (b.w) * (steepTier === 0 ? 0.06 : steepTier === 1 ? 0.09 : 0.13);
 
       if (arche === 0) {
         // back-to-front tilt (classic, most common)
