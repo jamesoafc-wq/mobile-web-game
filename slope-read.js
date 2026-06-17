@@ -79,7 +79,7 @@
       var L = 70 - hn * 46;                     // lightness: high=low L (dark)
       var S = 42 + hn * 12;
       var Hh = 122 + hn * 12;
-      ctx.fillStyle = 'hsla(' + Hh.toFixed(0) + ',' + S.toFixed(0) + '%,' + L.toFixed(0) + '%,0.5)';
+      ctx.fillStyle = 'hsla(' + Hh.toFixed(0) + ',' + S.toFixed(0) + '%,' + L.toFixed(0) + '%,' + (subtleMode ? 0.22 : 0.5) + ')';
       ctx.fillRect(c.x - cell / 2, c.y - cell / 2, cell + 0.7, cell + 0.7);
 
       // 2) CONVEYOR FLOW — within each cell, draw a short moving dash travelling
@@ -96,7 +96,7 @@
       var fade = Math.sin(phase * Math.PI);     // fade in/out across the cell
       var dx = c.x + ux * off, dy = c.y + uy * off;
       var len = 2.4 + steep * 2.2;
-      ctx.strokeStyle = 'rgba(245,255,235,' + (0.12 + steep * 0.5) * fade + ')';
+      ctx.strokeStyle = 'rgba(245,255,235,' + (0.12 + steep * 0.5) * fade * (subtleMode ? 0.45 : 1) + ')';
       ctx.lineWidth = 1 + steep * 0.8;
       ctx.lineCap = 'round';
       ctx.beginPath();
@@ -242,13 +242,19 @@
     ctx.restore();
   }
 
-  drawSlopeRead = function drawSlopeReadVisual(ctx, hole, timeMs) {
+  var subtleMode = false;   // when true, draw a faint approach-aid version
+
+  drawSlopeRead = function drawSlopeReadVisual(ctx, hole, timeMs, subtle) {
     if (!hole || !hole.green || !window.GreenField) return;
+    subtleMode = !!subtle;
     try { drawHeatMap(ctx, hole, timeMs); } catch (e) {}
-    try { drawArrows(ctx, hole, timeMs); } catch (e) {}
-    try { drawPuttLine(ctx, hole); } catch (e) {}
-    // a clean cup marker on top so the hole is always clearly visible
-    try { drawCupOnTop(ctx, hole, timeMs); } catch (e) {}
+    if (!subtleMode) {
+      // full reading (putting): arrows + predicted line + bold cup marker
+      try { drawArrows(ctx, hole, timeMs); } catch (e) {}
+      try { drawPuttLine(ctx, hole); } catch (e) {}
+      try { drawCupOnTop(ctx, hole, timeMs); } catch (e) {}
+    }
+    subtleMode = false;
   };
 
   window.slopeReadVisualLoaded = true;

@@ -793,7 +793,8 @@ function draw() {
   ctx.save();
   ctx.setTransform(cam.zoom, 0, 0, cam.zoom, cam.tx, cam.ty);
   drawCourse(ctx, hole, canvas.width, canvas.height, performance.now(), isPuttingView());
-  if (isPuttingView() && typeof drawSlopeRead === 'function') drawSlopeRead(ctx, hole, performance.now());
+  // (slope read is now drawn inside drawCourse — full when putting, subtle when
+  // approaching off the green — so no separate call is needed here.)
   drawAimLine();
   drawBall();
   ctx.restore();

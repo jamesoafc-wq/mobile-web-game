@@ -296,6 +296,43 @@
     });
   }
 
+  // ============================ TEE BOX ====================================
+  // A distinct, fully opaque manicured tee — its own slightly cooler/darker
+  // mown tone with a crisp edge, so it reads as a tee box rather than blending
+  // into (and appearing to show through to) the fairway.
+  function drawTeeBox(ctx, hole, p, theme) {
+    if (!hole.tee || hole.tee.length < 3) return;
+    var b = bounds(hole.tee);
+    // solid base first (kills any see-through look), then a tee-tone overlay
+    fillPoly(ctx, hole.tee, p.fairway, null, 0);
+    var teeTop = shade(p.fairway2, 1.04), teeBot = shade(p.fairway, 0.9);
+    fillPoly(ctx, hole.tee, lin(ctx, 0, b.minY, 0, b.maxY, [[0, teeTop], [1, teeBot]]),
+             'rgba(30,62,28,0.7)', 2);
+    clipPoly(ctx, hole.tee, function () {
+      // fine tee-mowing stripes (tighter than fairway) for a manicured look
+      for (var x = b.minX - 4; x <= b.maxX + 4; x += 8) {
+        ctx.fillStyle = ((Math.floor(x / 8) % 2) === 0) ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
+        ctx.fillRect(x, b.minY - 4, 4, (b.maxY - b.minY) + 8);
+      }
+    });
+    // two tee markers
+    var cx = (b.minX + b.maxX) / 2, my = b.minY + (b.maxY - b.minY) * 0.42;
+    ctx.fillStyle = '#e8e8ee';
+    ctx.beginPath(); ctx.arc(cx - 9, my, 2.1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 9, my, 2.1, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // lighten/darken a hex colour by a factor (>1 lighter, <1 darker)
+  function shade(hex, f) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return hex;
+    var n = parseInt(m[1], 16);
+    var r = Math.min(255, Math.round(((n >> 16) & 255) * f));
+    var g = Math.min(255, Math.round(((n >> 8) & 255) * f));
+    var bl = Math.min(255, Math.round((n & 255) * f));
+    return 'rgb(' + r + ',' + g + ',' + bl + ')';
+  }
+
   // ============================ BUNKERS ====================================
   function drawBunkers(ctx, hole, p, theme) {
     hole.bunkers.forEach(function (bk, idx) {
@@ -423,9 +460,7 @@
       drawRough(ctx, W, H, p, theme, timeMs);
       drawCoastline(ctx, hole, W, H, p, timeMs);
       drawWater(ctx, hole, timeMs, p, theme);
-      drawFairway(ctx, hole, p, theme);
-      fillPoly(ctx, hole.tee, p.fringe, 'rgba(44,87,42,0.5)', 2);
-      drawBunkers(ctx, hole, p, theme);
+
       drawGreen(ctx, hole, p, theme);
       // surroundings sit behind the in-play trees/props so playable items read on top
       drawSurroundings(ctx, hole, W, H, p, theme, timeMs);
@@ -437,7 +472,10 @@
       if (typeof drawProps === 'function') drawProps(ctx, hole);
       if (typeof drawThemeExtrasV046 === 'function') drawThemeExtrasV046(ctx, hole);
       if (typeof drawCupAndFlag === 'function') drawCupAndFlag(ctx, hole);
-      if (showSlope && typeof drawSlopeRead === 'function') drawSlopeRead(ctx, hole, timeMs);
+      if (typeof drawSlopeRead === 'function') {
+        // full reading while putting; a subtle approach-aid version off the green
+        drawSlopeRead(ctx, hole, timeMs, !showSlope);
+      }
     } catch (e) {
       // On any error, fall back to the previous themed renderer so the game is
       // never left unrendered.
