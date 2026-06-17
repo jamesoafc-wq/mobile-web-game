@@ -39,10 +39,20 @@
   function renderPhotoMenu() {
     courseMenuV045.innerHTML = '';
 
+    // Ensure the menu container can SCROLL — the taller photo tiles can exceed
+    // the viewport, and the container's default 'place-items:center' clips
+    // overflow with no way to reach it. Switch to a scrollable, top-aligned box.
+    courseMenuV045.style.display = 'block';
+    courseMenuV045.style.placeItems = '';
+    courseMenuV045.style.overflowY = 'auto';
+    courseMenuV045.style.overflowX = 'hidden';
+    courseMenuV045.style.webkitOverflowScrolling = 'touch';   // momentum scroll on iOS
+
     var shell = document.createElement('div');
     shell.style.maxWidth = '460px';
     shell.style.margin = '0 auto';
-    shell.style.padding = '18px 16px 28px';
+    shell.style.padding = '18px 16px 40px';
+    shell.style.minHeight = 'min-content';
 
     var title = document.createElement('div');
     title.innerHTML =
