@@ -21,6 +21,8 @@
   'use strict';
   if (typeof renderCourseMenuV045 !== 'function' || typeof COURSES_V045 === 'undefined') return;
 
+  var lockerTab = 'balls';   // active locker tab: 'balls' | 'tracers'
+
   function imgPath(id) { return 'course-' + id + '.png'; }
 
   // helpers reused from the existing menu if present, with safe fallbacks
@@ -184,13 +186,23 @@
       im.src = imgPath(course.id);
       card.appendChild(photo);
 
-      // readability scrim at the bottom
+      // readability scrim at the bottom — locked tiles get a heavy dark veil
       var scrim = document.createElement('div');
       scrim.style.position = 'absolute';
       scrim.style.inset = '0';
-      scrim.style.background =
-        'linear-gradient(180deg, rgba(0,0,0,.05) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.55) 100%)';
+      scrim.style.background = playable
+        ? 'linear-gradient(180deg, rgba(0,0,0,.05) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.55) 100%)'
+        : 'linear-gradient(180deg, rgba(3,8,4,.78) 0%, rgba(3,8,4,.7) 50%, rgba(3,8,4,.82) 100%)';
       card.appendChild(scrim);
+      if (!playable) {
+        // extra blur-like darken so it's hard to make out the course underneath
+        var veil = document.createElement('div');
+        veil.style.position = 'absolute';
+        veil.style.inset = '0';
+        veil.style.background = 'rgba(2,6,3,0.45)';
+        veil.style.backdropFilter = 'grayscale(0.6) brightness(0.5)';
+        card.appendChild(veil);
+      }
 
       // status / lock badge (top-right)
       if (!playable) {
@@ -241,25 +253,51 @@
 
     shell.appendChild(grid);
 
-    // ---- customisation: ball skins ----
+    // ---- customisation locker: Balls / Tracers tabs ----
     if (window.Progress) {
       var custTitle = document.createElement('div');
       custTitle.innerHTML =
-        '<div style="font:950 16px system-ui;color:#eef8d8;">Ball locker</div>' +
+        '<div style="font:950 16px system-ui;color:#eef8d8;">Locker</div>' +
         '<div style="font:750 11px system-ui;color:rgba(232,246,222,.7);margin-top:3px;">Earn coins playing rounds — unlock & equip.</div>';
-      custTitle.style.margin = '24px 0 12px';
+      custTitle.style.margin = '24px 0 10px';
       shell.appendChild(custTitle);
 
-      var ballGrid = document.createElement('div');
-      ballGrid.style.display = 'grid';
-      ballGrid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-      ballGrid.style.gap = '10px';
+      // tab bar
+      var tabs = document.createElement('div');
+      tabs.style.display = 'flex';
+      tabs.style.gap = '8px';
+      tabs.style.marginBottom = '12px';
+      [['balls', 'Balls'], ['tracers', 'Tracers']].forEach(function (t) {
+        var tb = document.createElement('button');
+        tb.type = 'button';
+        tb.textContent = t[1];
+        var active = lockerTab === t[0];
+        tb.style.flex = '1';
+        tb.style.padding = '8px';
+        tb.style.borderRadius = '10px';
+        tb.style.font = '850 12px system-ui';
+        tb.style.cursor = 'pointer';
+        tb.style.border = active ? '1px solid #ffe27a' : '1px solid rgba(238,248,216,.16)';
+        tb.style.background = active ? 'rgba(255,226,122,.16)' : 'rgba(255,255,255,.05)';
+        tb.style.color = active ? '#ffe27a' : '#eef8d8';
+        tb.addEventListener('click', function () { lockerTab = t[0]; renderPhotoMenu(); });
+        tabs.appendChild(tb);
+      });
+      shell.appendChild(tabs);
 
-      Progress.balls().forEach(function (b) {
-        var owned = Progress.owns(b.id);
-        var equipped = Progress.equipped() === b.id;
-        var lvlOk = Progress.level().level >= b.level;
-        var afford = Progress.coins() >= b.cost;
+      var grid2 = document.createElement('div');
+      grid2.style.display = 'grid';
+      grid2.style.gridTemplateColumns = 'repeat(4, 1fr)';
+      grid2.style.gap = '10px';
+
+      var isTracer = (lockerTab === 'tracers');
+      var items = isTracer ? Progress.tracers() : Progress.balls();
+
+      items.forEach(function (it) {
+        var owned = isTracer ? Progress.ownsTracer(it.id) : Progress.owns(it.id);
+        var equipped = isTracer ? (Progress.equippedTracer() === it.id) : (Progress.equipped() === it.id);
+        var lvlOk = Progress.level().level >= it.level;
+        var afford = Progress.coins() >= it.cost;
 
         var cell = document.createElement('button');
         cell.type = 'button';
@@ -274,16 +312,23 @@
         cell.style.alignItems = 'center';
         cell.style.gap = '5px';
 
-        // ball swatch
+        // swatch: ball = sphere; tracer = a streak
         var sw = document.createElement('div');
-        sw.style.width = '30px'; sw.style.height = '30px'; sw.style.borderRadius = '50%';
-        sw.style.background = 'radial-gradient(circle at 38% 32%, ' + b.color + ', ' + b.accent + ')';
-        sw.style.boxShadow = 'inset 0 -2px 4px rgba(0,0,0,.25), 0 2px 5px rgba(0,0,0,.3)';
+        sw.style.width = '30px'; sw.style.height = '30px';
+        if (isTracer) {
+          sw.style.borderRadius = '4px';
+          sw.style.background = 'linear-gradient(90deg, rgba(0,0,0,0), ' + it.color + ')';
+          sw.style.boxShadow = '0 0 8px ' + it.color;
+        } else {
+          sw.style.borderRadius = '50%';
+          sw.style.background = 'radial-gradient(circle at 38% 32%, ' + it.color + ', ' + it.accent + ')';
+          sw.style.boxShadow = 'inset 0 -2px 4px rgba(0,0,0,.25), 0 2px 5px rgba(0,0,0,.3)';
+        }
         if (!owned) sw.style.filter = 'grayscale(0.7) brightness(0.7)';
         cell.appendChild(sw);
 
         var nm = document.createElement('div');
-        nm.textContent = b.name;
+        nm.textContent = it.name;
         nm.style.font = '800 8.5px system-ui';
         nm.style.color = '#eef8d8';
         nm.style.textAlign = 'center';
@@ -294,21 +339,27 @@
         statusEl.style.font = '850 9px system-ui';
         if (equipped) { statusEl.textContent = 'EQUIPPED'; statusEl.style.color = '#ffe27a'; }
         else if (owned) { statusEl.textContent = 'Equip'; statusEl.style.color = '#9be870'; }
-        else if (!lvlOk) { statusEl.textContent = 'Lvl ' + b.level; statusEl.style.color = 'rgba(255,255,255,.55)'; }
-        else { statusEl.innerHTML = '◉ ' + b.cost; statusEl.style.color = afford ? '#ffe27a' : 'rgba(255,180,180,.8)'; }
+        else if (!lvlOk) { statusEl.textContent = 'Lvl ' + it.level; statusEl.style.color = 'rgba(255,255,255,.55)'; }
+        else { statusEl.innerHTML = '◉ ' + it.cost; statusEl.style.color = afford ? '#ffe27a' : 'rgba(255,180,180,.8)'; }
         cell.appendChild(statusEl);
 
         cell.addEventListener('click', function () {
-          if (Progress.owns(b.id)) { Progress.equip(b.id); }
-          else if (Progress.buyBall(b.id)) { Progress.equip(b.id); }
-          else { return; }   // can't afford / locked — no-op
-          renderPhotoMenu();  // refresh to reflect new state
+          if (isTracer) {
+            if (Progress.ownsTracer(it.id)) Progress.equipTracer(it.id);
+            else if (Progress.buyTracer(it.id)) Progress.equipTracer(it.id);
+            else return;
+          } else {
+            if (Progress.owns(it.id)) Progress.equip(it.id);
+            else if (Progress.buyBall(it.id)) Progress.equip(it.id);
+            else return;
+          }
+          renderPhotoMenu();
         });
 
-        ballGrid.appendChild(cell);
+        grid2.appendChild(cell);
       });
 
-      shell.appendChild(ballGrid);
+      shell.appendChild(grid2);
     }
     courseMenuV045.appendChild(shell);
   }

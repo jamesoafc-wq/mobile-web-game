@@ -37,13 +37,18 @@
     coins: 0,
     equippedBall: 'classic',
     ownedBalls: ['classic'],
+    equippedTracer: 'classic',
+    ownedTracers: ['classic'],
     bestScores: {}     // courseId -> best strokes-to-par
   };
   var state = Object.assign({}, DEFAULT, load() || {});
   // make sure arrays/objects exist after a partial load
   if (!Array.isArray(state.ownedBalls)) state.ownedBalls = ['classic'];
+  if (!Array.isArray(state.ownedTracers)) state.ownedTracers = ['classic'];
+  if (!state.equippedTracer) state.equippedTracer = 'classic';
   if (!state.bestScores) state.bestScores = {};
   if (state.ownedBalls.indexOf('classic') < 0) state.ownedBalls.unshift('classic');
+  if (state.ownedTracers.indexOf('classic') < 0) state.ownedTracers.unshift('classic');
 
   // ---------- level curve ----------
   // XP needed to REACH level L (1-indexed). Smooth rising curve.
@@ -74,6 +79,19 @@
     { id: 'gold',     name: 'Gold Pro',      color: '#ffdf6e', accent: '#b88a1e', cost: 1200, level: 12 }
   ];
   function ballById(id) { for (var i = 0; i < BALLS.length; i++) if (BALLS[i].id === id) return BALLS[i]; return BALLS[0]; }
+
+  // Tracer (driver shot trail) colours — same buy/level model as balls.
+  var TRACERS = [
+    { id: 'classic',  name: 'Classic Gold', color: '#ffdd46', cost: 0,    level: 1 },
+    { id: 'cyan',     name: 'Cyan',         color: '#65e8ff', cost: 100,  level: 1 },
+    { id: 'crimson',  name: 'Crimson',      color: '#ff5a5a', cost: 150,  level: 2 },
+    { id: 'violet',   name: 'Violet',       color: '#b68cff', cost: 220,  level: 3 },
+    { id: 'mint',     name: 'Mint',         color: '#7cff95', cost: 280,  level: 4 },
+    { id: 'ember',    name: 'Ember',        color: '#ff8a3c', cost: 420,  level: 6 },
+    { id: 'aurora',   name: 'Aurora',       color: '#8affd6', cost: 600,  level: 9 },
+    { id: 'plasma',   name: 'Plasma',       color: '#ff5cc8', cost: 1000, level: 12 }
+  ];
+  function tracerById(id) { for (var i = 0; i < TRACERS.length; i++) if (TRACERS[i].id === id) return TRACERS[i]; return TRACERS[0]; }
 
   // Course unlock requirements by level (id -> level). Willow always open.
   var COURSE_UNLOCK = { willow: 1, coral: 3, dunes: 6, pine: 10, silver: 15 };
@@ -170,6 +188,36 @@
     };
   }
 
+  // ---- tracer colour: take over the driver trail renderer ----
+  function hexA(hex, a) {
+    var h = hex.replace('#', '');
+    var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+  if (typeof drawDriverTrailV038 === 'function') {
+    drawDriverTrailV038 = function drawDriverTrailProg() {
+      try {
+        if (typeof driverTrailV038 === 'undefined' || driverTrailV038.length < 2) return;
+        var nowMs = (performance && performance.now) ? performance.now() : Date.now();
+        if (!driverTrailActiveV038 && nowMs > driverTrailUntilV038) return;
+        var colour = tracerById(state.equippedTracer).color;
+        var cam = getCamera();
+        ctx.save();
+        ctx.setTransform(cam.zoom, 0, 0, cam.zoom, cam.tx, cam.ty);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = hexA(colour, 0.28); ctx.lineWidth = 5.4;
+        ctx.beginPath();
+        driverTrailV038.forEach(function (p, idx) { idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
+        ctx.stroke();
+        ctx.strokeStyle = hexA(colour, 0.88); ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        driverTrailV038.forEach(function (p, idx) { idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
+        ctx.stroke();
+        ctx.restore();
+      } catch (e) {}
+    };
+  }
+
   // ---------- public API ----------
   window.Progress = {
     state: function () { return state; },
@@ -179,6 +227,10 @@
     ballById: ballById,
     owns: function (id) { return state.ownedBalls.indexOf(id) >= 0; },
     equipped: function () { return state.equippedBall; },
+    tracers: function () { return TRACERS; },
+    tracerById: tracerById,
+    ownsTracer: function (id) { return state.ownedTracers.indexOf(id) >= 0; },
+    equippedTracer: function () { return state.equippedTracer; },
     bestScore: function (cid) { return state.bestScores[cid]; },
     lastAward: function () { return state.lastAward || null; },
 
@@ -201,6 +253,20 @@
     equip: function (id) {
       if (state.ownedBalls.indexOf(id) < 0) return false;
       state.equippedBall = id; save(); return true;
+    },
+    buyTracer: function (id) {
+      var tr = tracerById(id);
+      if (state.ownedTracers.indexOf(id) >= 0) return true;
+      if (levelInfo().level < tr.level) return false;
+      if (state.coins < tr.cost) return false;
+      state.coins -= tr.cost;
+      state.ownedTracers.push(id);
+      save();
+      return true;
+    },
+    equipTracer: function (id) {
+      if (state.ownedTracers.indexOf(id) < 0) return false;
+      state.equippedTracer = id; save(); return true;
     },
     // dev/testing helper
     _reset: function () { state = Object.assign({}, DEFAULT, { ownedBalls: ['classic'], bestScores: {} }); save(); }
