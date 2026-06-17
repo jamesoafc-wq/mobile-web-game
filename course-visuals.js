@@ -460,7 +460,9 @@
       drawRough(ctx, W, H, p, theme, timeMs);
       drawCoastline(ctx, hole, W, H, p, timeMs);
       drawWater(ctx, hole, timeMs, p, theme);
-
+      drawFairway(ctx, hole, p, theme);
+      drawTeeBox(ctx, hole, p, theme);
+      drawBunkers(ctx, hole, p, theme);
       drawGreen(ctx, hole, p, theme);
       // surroundings sit behind the in-play trees/props so playable items read on top
       drawSurroundings(ctx, hole, W, H, p, theme, timeMs);

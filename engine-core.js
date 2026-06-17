@@ -671,7 +671,10 @@ function getSkillPanelRect() {
 }
 function getStrikeCancelButton() {
   const panel = getSkillPanelRect();
-  return { x: panel.x + 16, y: panel.y + 62, w: 84, h: 24 };
+  // sit just ABOVE the meter panel, right-aligned, so it never overlaps the
+  // track, zones, marker or legend of the redesigned swing meter.
+  const w = 74, h = 22;
+  return { x: panel.x + panel.w - w, y: panel.y - h - 8, w: w, h: h };
 }
 function drawStrikeCancelButton() {
   if (!pendingShot) return;
