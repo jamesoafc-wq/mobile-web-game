@@ -86,18 +86,32 @@
     return seeds;
   }
 
-  // ----- DESERT CANYON: long par 5s, big carries over dry washes -----
-  var desertSeeds = seedsFor('desert', { specials: function (s) {
-    // hole 6 (par 5): big sweeping dogleg over a canyon
-    s[5].amp = 58; s[5].tilt = 40; s[5].special = 'canyon-carry';
-    // hole 14 (par 5): long straight with central waste bunker
-    s[13].amp = 12; s[13].special = 'waste-spine';
-  }});
-
-  // ----- HIGHLAND MOOR: lochs, tight heather, stone-wall doglegs -----
+  // ----- HIGHLAND MOOR (recoloured): peat browns, sage/olive, grey lochs;
+  //       heather only as small purple accents (handled in rendering) -----
   var moorSeeds = seedsFor('moor', { specials: function (s) {
     s[10].amp = 50; s[10].tilt = -34; s[10].special = 'loch-carry';   // par 5 over a loch
-    s[2].special = 'wall-bunker';   // par 3 guarded by stone wall
+    s[2].special = 'wall-bunker';   // par 3 guarded by a stone wall
+    s[7].special = 'stone-dogleg';  // dogleg around a drystone wall
+  }});
+
+  // ----- COASTAL CLIFFS: clifftop links, sea carries, lighthouses -----
+  var cliffsSeeds = seedsFor('cliffs', { specials: function (s) {
+    s[5].amp = 54; s[5].tilt = 38; s[5].special = 'sea-carry';     // par 5 along the cliff edge
+    s[13].special = 'cape-carry';                                   // diagonal carry over a cove
+    s[2].special = 'cliff-par3';                                    // par 3 over crashing surf
+  }});
+
+  // ----- AUTUMN WOODLAND: fall canopy, leaf litter, winding stream -----
+  var autumnSeeds = seedsFor('autumn', { specials: function (s) {
+    s[5].amp = 44; s[5].special = 'stream-weave';   // par 5 weaving along a stream
+    s[10].amp = -40; s[10].special = 'grove-dogleg';
+  }});
+
+  // ----- EVERGLADES: water everywhere, marsh grass, boardwalks -----
+  var gladesSeeds = seedsFor('glades', { specials: function (s) {
+    s[5].special = 'marsh-islands';  // par 5 hopping between marsh islands
+    s[13].amp = 46; s[13].special = 'water-spine';
+    for (var i = 0; i < 18; i++) s[i].wet = true;   // lots of water everywhere
   }});
 
   // ----- MOON: low-grav feel, crater hazards, no water -----
@@ -114,37 +128,53 @@
 
   // ----- FLOATING ISLES: void = water; inventive shapes + shortcut island -----
   var skySeeds = seedsFor('sky', { specials: function (s) {
-    // the signature hole: an upside-down-L par 5 with a risky shortcut island.
-    // (rendered specially; functionally the void around islands plays as water.)
     s[5].par = 5; s[5].amp = 0; s[5].tilt = 0; s[5].special = 'L-shortcut';
     s[5].tee = { x: 120, y: 650 }; s[5].cupShift = { x: 60, y: -10 };
     s[10].special = 'island-hop';   // par 5 across a chain of small islands
     s[1].special = 'narrow-isle';   // tight par 5
-    // mark every sky hole so the renderer knows the void = water
     for (var i = 0; i < 18; i++) s[i].voidWater = true;
   }});
 
+  // ----- MAGNOLIA GRAND: immaculate championship parkland (the finale) -----
+  var mastersSeeds = seedsFor('masters', { specials: function (s) {
+    s[5].amp = 40; s[5].tilt = 26; s[5].special = 'azalea-carry';  // famous water-carry par 5
+    s[10].special = 'fountain-pond';
+    s[15].special = 'flowerbank';
+  }});
+
   var NEW = [
-    { id: 'desert', name: 'Desert Canyon', subtitle: 'Red-rock canyon links', difficulty: 4,
-      palette: ['#a0522d', '#d2884f', '#f0c98a'], icon: '🏜️',
-      details: 'Mesa carries, dry washes and saguaro-lined fairways.', theme: 'desert',
-      unlockLevel: 4, holes: buildCourse('desert', desertSeeds) },
     { id: 'moor', name: 'Highland Moor', subtitle: 'Misty heather & lochs', difficulty: 4,
-      palette: ['#6b5b8a', '#8f9e6b', '#c9d6a3'], icon: '🌫️',
-      details: 'Heather rough, stone walls and cold loch carries.', theme: 'moor',
-      unlockLevel: 7, holes: buildCourse('moor', moorSeeds) },
+      palette: ['#6e6a4e', '#8a9663', '#c2c79a'], icon: '🌫️',
+      details: 'Peat, sage rough, drystone walls and cold grey lochs.', theme: 'moor',
+      unlockLevel: 18, holes: buildCourse('moor', moorSeeds) },
+    { id: 'cliffs', name: 'Coastal Cliffs', subtitle: 'Clifftop sea links', difficulty: 5,
+      palette: ['#3a7d8c', '#6fb0c0', '#e8e2cf'], icon: '🌊',
+      details: 'Wind-bent links on pale cliffs above a crashing blue sea.', theme: 'cliffs',
+      unlockLevel: 22, holes: buildCourse('cliffs', cliffsSeeds) },
+    { id: 'autumn', name: 'Amber Hollow', subtitle: 'Autumn woodland', difficulty: 4,
+      palette: ['#b5652c', '#d98f3c', '#e8c46a'], icon: '🍂',
+      details: 'Gold-and-crimson canopy, leaf litter and a winding stream.', theme: 'autumn',
+      unlockLevel: 26, holes: buildCourse('autumn', autumnSeeds) },
+    { id: 'glades', name: 'Cypress Glades', subtitle: 'Everglades wetlands', difficulty: 5,
+      palette: ['#3f6b4a', '#6f9e63', '#bcae7a'], icon: '🐊',
+      details: 'Marsh grass, cypress, boardwalks and water at every turn.', theme: 'glades',
+      unlockLevel: 30, holes: buildCourse('glades', gladesSeeds) },
     { id: 'moon', name: 'Sea of Serenity', subtitle: 'Lunar regolith course', difficulty: 5,
       palette: ['#5a5f6b', '#9aa0ad', '#d6dae3'], icon: '🌙',
       details: 'Craters, rilles and low-gravity carries under a black sky.', theme: 'moon',
-      unlockLevel: 12, holes: buildCourse('moon', moonSeeds) },
+      unlockLevel: 35, holes: buildCourse('moon', moonSeeds) },
     { id: 'mars', name: 'Olympus Links', subtitle: 'Martian dust course', difficulty: 5,
       palette: ['#b34a2f', '#d97f54', '#f0b58a'], icon: '🔴',
       details: 'Rust dust, boulder fields, ice patches and dust devils.', theme: 'mars',
-      unlockLevel: 16, holes: buildCourse('mars', marsSeeds) },
+      unlockLevel: 40, holes: buildCourse('mars', marsSeeds) },
     { id: 'sky', name: 'Floating Isles', subtitle: 'Islands in the void', difficulty: 5,
       palette: ['#3b6ea5', '#7fb2e0', '#cfe8ff'], icon: '☁️',
       details: 'Sky islands over an endless void — miss the island, lose the ball.', theme: 'sky',
-      unlockLevel: 20, holes: buildCourse('sky', skySeeds) }
+      unlockLevel: 45, holes: buildCourse('sky', skySeeds) },
+    { id: 'masters', name: 'Magnolia Grand', subtitle: 'Immaculate championship', difficulty: 5,
+      palette: ['#1f7a3f', '#3fae5e', '#e8b6d0'], icon: '🏆',
+      details: 'Flawless emerald turf, azalea banks, white sand and fountains.', theme: 'masters',
+      unlockLevel: 52, holes: buildCourse('masters', mastersSeeds) }
   ];
 
   // append to the course list (skip if already present, e.g. hot reload)

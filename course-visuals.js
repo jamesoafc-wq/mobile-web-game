@@ -93,12 +93,37 @@
       rock: '#9c4a2c', rockDark: '#7a3620', mesa: '#b8623a', sky: ['#f0c98a', '#e09a5a']
     },
     moor: {
-      roughTop: '#5a5070', roughBot: '#46395a', blade: 'rgba(180,150,210,0.14)', flower: ['#b48cd0', '#d8a0e0', '#9a7ab8'],
-      fairway: '#7d9460', fairway2: '#8aa06c', stripe: 'rgba(230,240,210,0.05)',
-      fringe: '#8a9e6b', green: '#a6bd80', greenSheen: 'rgba(225,240,205,0.16)',
-      sand: '#c8b890', sandEdge: 'rgba(80,70,50,0.6)',
-      water: ['#3a5570', '#26384f'], waterSheen: 'rgba(200,220,240,0.16)',
-      heather: '#9a6fb0', wall: '#8c8478', wallDark: '#6b6458', sky: ['#b8b0c8', '#8f8aa0'], mist: 'rgba(220,225,235,0.18)'
+      // recoloured: peat browns, sage/olive greens, grey stone & lochs.
+      roughTop: '#6e6a4e', roughBot: '#54513a', blade: 'rgba(150,150,90,0.12)', flower: ['#9a6fb0', '#b98ccc', '#c9b46a'],
+      fairway: '#8a9663', fairway2: '#96a06e', stripe: 'rgba(235,240,210,0.05)',
+      fringe: '#8fa06b', green: '#a8bd80', greenSheen: 'rgba(228,240,205,0.15)',
+      sand: '#b8a878', sandEdge: 'rgba(80,70,45,0.6)',
+      water: ['#46586a', '#33424f'], waterSheen: 'rgba(200,215,230,0.16)',
+      heather: '#9a6fb0', wall: '#9a9488', wallDark: '#736d61', sky: ['#c2c2cc', '#9a9aa8'], mist: 'rgba(225,228,235,0.20)'
+    },
+    cliffs: {
+      roughTop: '#5f8a55', roughBot: '#4a7044', blade: 'rgba(210,235,170,0.10)', flower: ['#ffffff', '#f0e68c', '#e8a0b0'],
+      fairway: '#7cbf6a', fairway2: '#8acb77', stripe: 'rgba(255,255,255,0.06)',
+      fringe: '#84c473', green: '#9bd886', greenSheen: 'rgba(235,255,225,0.16)',
+      sand: '#ece2c6', sandEdge: 'rgba(120,110,80,0.5)',
+      water: ['#2f7d9c', '#1d5773'], waterSheen: 'rgba(255,255,255,0.22)',
+      cliff: '#d8cfb4', cliffDark: '#b3a886', surf: 'rgba(255,255,255,0.8)', sky: ['#bfe0ee', '#8ec0d6']
+    },
+    autumn: {
+      roughTop: '#8a5a2a', roughBot: '#6e441f', blade: 'rgba(200,120,50,0.14)', flower: ['#e8a23c', '#d9542c', '#f0c46a'],
+      fairway: '#9fae54', fairway2: '#aeb863', stripe: 'rgba(255,240,200,0.05)',
+      fringe: '#a8b35e', green: '#c0cb78', greenSheen: 'rgba(255,245,200,0.15)',
+      sand: '#dcc28a', sandEdge: 'rgba(100,70,35,0.6)',
+      water: ['#3a7a90', '#275868'], waterSheen: 'rgba(220,245,255,0.16)',
+      canopy: ['#d9542c', '#e8923c', '#e8c046', '#b5652c'], leaf: 'rgba(220,120,50,0.5)', sky: ['#e8cf9a', '#d8a86a']
+    },
+    glades: {
+      roughTop: '#4a7340', roughBot: '#385a30', blade: 'rgba(180,210,120,0.12)', flower: ['#e8d46a', '#ffffff', '#d8a0b0'],
+      fairway: '#6f9e55', fairway2: '#7cab62', stripe: 'rgba(240,255,210,0.05)',
+      fringe: '#79a85e', green: '#94c277', greenSheen: 'rgba(235,255,210,0.15)',
+      sand: '#cabd86', sandEdge: 'rgba(80,70,40,0.55)',
+      water: ['#3f6e6a', '#2a4f4c'], waterSheen: 'rgba(210,240,235,0.18)',
+      marsh: '#8a9e5a', reed: '#b5a85e', cypress: '#3a5e3a', sky: ['#cfe0c8', '#9ab89a']
     },
     moon: {
       roughTop: '#6a6f7b', roughBot: '#535863', blade: 'rgba(200,205,215,0.06)', flower: ['#aeb4c0', '#c8ccd6'],
@@ -123,6 +148,14 @@
       sand: '#ecd9a9', sandEdge: 'rgba(120,100,60,0.5)',
       water: ['#3b6ea5', '#2a5080'], waterSheen: 'rgba(220,240,255,0.20)',
       voidTop: '#bfe0ff', voidBot: '#5f8fc5', islandEdge: '#6a4a32', islandRock: '#8a6446', cloud: 'rgba(255,255,255,0.7)', sky: ['#cfe8ff', '#7fb2e0']
+    },
+    masters: {
+      roughTop: '#2a8048', roughBot: '#1f6638', blade: 'rgba(180,255,170,0.10)', flower: ['#e87fb0', '#ff9ab0', '#ffffff', '#d86a9a'],
+      fairway: '#37b85e', fairway2: '#45c46c', stripe: 'rgba(255,255,255,0.08)',
+      fringe: '#3fae5e', green: '#5fd07e', greenSheen: 'rgba(240,255,230,0.22)',
+      sand: '#fbf3da', sandEdge: 'rgba(150,130,80,0.5)',
+      water: ['#2f9ad0', '#1d6fa8'], waterSheen: 'rgba(255,255,255,0.26)',
+      azalea: ['#e87fb0', '#ff6fa0', '#ffffff', '#d86a9a'], fountain: 'rgba(255,255,255,0.85)', sky: ['#d8f0ff', '#9fd0f0']
     }
   };
   function pal(hole) { return T[hole.courseTheme] || T.willow; }
