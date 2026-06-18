@@ -152,7 +152,7 @@
     masters: {
       roughTop: '#2a8048', roughBot: '#1f6638', blade: 'rgba(180,255,170,0.10)', flower: ['#e87fb0', '#ff9ab0', '#ffffff', '#d86a9a'],
       fairway: '#37b85e', fairway2: '#45c46c', stripe: 'rgba(255,255,255,0.08)',
-      fringe: '#3fae5e', green: '#5fd07e', greenSheen: 'rgba(240,255,230,0.22)',
+      fringe: '#5aa86e', green: '#5fd07e', greenSheen: 'rgba(240,255,230,0.22)',
       sand: '#fbf3da', sandEdge: 'rgba(150,130,80,0.5)',
       water: ['#2f9ad0', '#1d6fa8'], waterSheen: 'rgba(255,255,255,0.26)',
       azalea: ['#e87fb0', '#ff6fa0', '#ffffff', '#d86a9a'], fountain: 'rgba(255,255,255,0.85)', sky: ['#d8f0ff', '#9fd0f0']
@@ -439,13 +439,16 @@
 
   // ============================ GREEN ======================================
   function drawGreen(ctx, hole, p, theme) {
-    fillPoly(ctx, hole.greenRing, p.fringe, 'rgba(45,100,45,0.34)', 2);
+    // GUARANTEED opaque fringe base first (kills fairway show-through), then the
+    // fringe tone on top with its edge stroke.
+    if (hole.greenRing && hole.greenRing.length > 2) {
+      fillPoly(ctx, hole.greenRing, p.fringe, null, 0);
+      fillPoly(ctx, hole.greenRing, p.fringe, 'rgba(45,100,45,0.34)', 2);
+    }
     var b = bounds(hole.green);
     var cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
-    // GUARANTEED opaque base first — kills any chance of the fairway/rough
-    // showing through the gradient on top.
+    // GUARANTEED opaque green base, then the domed gradient on top.
     fillPoly(ctx, hole.green, p.green, null, 0);
-    // domed green: radial light toward crown (layered over the solid base)
     fillPoly(ctx, hole.green, rad(ctx, cx - 6, cy - 6, 3, Math.max(b.maxX - b.minX, b.maxY - b.minY) * 0.7,
       [[0, p.green], [1, theme === 'silver' ? '#8fd0b0' : '#86c96a']]), 'rgba(56,120,47,0.4)', 2);
     clipPoly(ctx, hole.green, function () {
@@ -545,9 +548,11 @@
       // surroundings sit behind the in-play trees/props so playable items read on top
       drawSurroundings(ctx, hole, W, H, p, theme, timeMs);
       // Base oaks only suit the parkland-style courses. Coral is palms-only,
-      // dunes is a treeless links — skip the generic oaks there so we don't get
-      // mismatched/duplicate trees.
-      var drawOaks = !(theme === 'coral' || theme === 'dunes');
+      // dunes is a treeless links; coral is palms-only; and every NEW themed
+      // course supplies its own course-specific trees via course-detail.js — so
+      // skip the generic oaks on all of them to avoid mismatched/duplicate trees.
+      var NO_OAK = { coral: 1, dunes: 1, moor: 1, cliffs: 1, autumn: 1, glades: 1, moon: 1, mars: 1, sky: 1, masters: 1 };
+      var drawOaks = !NO_OAK[theme];
       if (drawOaks && typeof drawTrees === 'function') drawTrees(ctx, hole);
       if (typeof drawProps === 'function') drawProps(ctx, hole);
       if (typeof drawThemeExtrasV046 === 'function') drawThemeExtrasV046(ctx, hole);

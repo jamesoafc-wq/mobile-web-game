@@ -146,14 +146,87 @@
     }
 
     // 4) blossoming trees scattered in the rough margins (away from play)
-    var nTrees = 5;
+    var nTrees = 7;
     for (var k = 0; k < nTrees; k++) {
       var edge = rnd();
-      var tx = edge < 0.5 ? 18 + rnd() * 40 : 362 + rnd() * 40 - 40;
-      var ty = 90 + rnd() * 560;
-      // keep clear of the green/fairway centre
-      blossomTree(ctx, tx, ty, 0.8 + rnd() * 0.5, rnd, AZ);
+      var tx = edge < 0.5 ? 14 + rnd() * 46 : 360 + rnd() * 46 - 46;
+      var ty = 80 + rnd() * 580;
+      blossomTree(ctx, tx, ty, 1.9 + rnd() * 0.9, rnd, AZ);
     }
+
+    // 5) grandstands with spectators, set back in the rough behind the green
+    var gb2 = pbounds(hole.green);
+    grandstand(ctx, Math.max(40, gb2.minX - 40), gb2.minY - 18, 54, rnd);
+    grandstand(ctx, Math.min(380, gb2.maxX + 40) - 54, gb2.cy - 10, 48, rnd);
+
+    // 6) gallery ropes on stakes lining the fairway corridor
+    if (hole.fairway && hole.fairway.length > 3) galleryRopes(ctx, hole.fairway, rnd);
+  }
+
+  // tiered grandstand packed with little spectators
+  function grandstand(ctx, x, y, w, rnd) {
+    var rows = 5, rh = 3.4, depth = w * 0.42;
+    ctx.save();
+    // structure (perspective trapezoid)
+    ctx.fillStyle = '#6b7078';
+    ctx.beginPath();
+    ctx.moveTo(x, y + rows * rh);
+    ctx.lineTo(x + w, y + rows * rh);
+    ctx.lineTo(x + w - 6, y - depth);
+    ctx.lineTo(x + 6, y - depth);
+    ctx.closePath(); ctx.fill();
+    // tier steps + crowd
+    for (var r = 0; r < rows; r++) {
+      var ry = y + (rows - r) * rh - depth * (r / rows);
+      var inset = 6 * (1 - r / rows);
+      ctx.fillStyle = r % 2 ? '#7a808a' : '#727880';
+      ctx.fillRect(x + inset, ry, w - inset * 2, rh - 0.6);
+      // spectators: dotted heads in varied colours
+      var heads = Math.floor((w - inset * 2) / 3);
+      for (var hh = 0; hh < heads; hh++) {
+        var hx = x + inset + 1.5 + hh * 3 + (rnd() - 0.5);
+        ctx.fillStyle = ['#e8c4a0','#d8a888','#c89878','#f0d0b0'][Math.floor(rnd() * 4)];
+        ctx.beginPath(); ctx.arc(hx, ry - 0.4, 0.9, 0, Math.PI * 2); ctx.fill();
+        // occasional bright clothing dot
+        if (rnd() < 0.3) {
+          ctx.fillStyle = ['#d94f4f','#4f7fd9','#ffffff','#e8d44f'][Math.floor(rnd() * 4)];
+          ctx.fillRect(hx - 0.5, ry + 0.4, 1, 1.2);
+        }
+      }
+    }
+    // roof lip
+    ctx.fillStyle = '#565b62';
+    ctx.fillRect(x + 6, y - depth - 1.5, w - 12, 2);
+    ctx.restore();
+  }
+
+  // white gallery ropes on stakes following a polygon's edge
+  function galleryRopes(ctx, poly, rnd) {
+    var pts = [];
+    var n = 18;
+    for (var i = 0; i < n; i++) {
+      var p = polyCentroidEdge(poly, i / n);
+      // push outward a touch from the fairway
+      pts.push(p);
+    }
+    ctx.save();
+    // stakes
+    ctx.fillStyle = '#e8e8e0';
+    pts.forEach(function (p) {
+      ctx.fillRect(p.x - 0.5, p.y - 3, 1, 3);
+    });
+    // rope (sagging segments between stakes)
+    ctx.strokeStyle = 'rgba(245,245,235,0.85)'; ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    for (var i = 0; i < pts.length; i++) {
+      var a = pts[i], b = pts[(i + 1) % pts.length];
+      if (Math.hypot(b.x - a.x, b.y - a.y) > 30) continue; // don't span big gaps
+      var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + 1.5;  // sag
+      ctx.moveTo(a.x, a.y - 2.4);
+      ctx.quadraticCurveTo(mx, my - 2.4, b.x, b.y - 2.4);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   // ---- wrap the theme-extras dispatcher ----
