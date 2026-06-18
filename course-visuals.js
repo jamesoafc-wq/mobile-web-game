@@ -83,6 +83,46 @@
       fringe: '#8fcfb0', green: '#a4debf', greenSheen: 'rgba(235,255,250,0.20)',
       sand: '#d9d3be', sandEdge: 'rgba(110,120,120,0.5)',
       water: ['#5aa6c0', '#3f7e9c'], waterSheen: 'rgba(240,255,255,0.26)'
+    },
+    desert: {
+      roughTop: '#b06a36', roughBot: '#8f5025', blade: 'rgba(120,70,30,0.16)', flower: ['#e8c06a', '#d98c4a', '#f0d49a'],
+      fairway: '#a9b86a', fairway2: '#b8c578', stripe: 'rgba(255,245,210,0.05)',
+      fringe: '#b5be78', green: '#cdd68a', greenSheen: 'rgba(255,248,205,0.14)',
+      sand: '#e7c98a', sandEdge: 'rgba(120,75,35,0.65)',
+      water: ['#3f8aa0', '#2c6478'], waterSheen: 'rgba(220,245,255,0.14)',
+      rock: '#9c4a2c', rockDark: '#7a3620', mesa: '#b8623a', sky: ['#f0c98a', '#e09a5a']
+    },
+    moor: {
+      roughTop: '#5a5070', roughBot: '#46395a', blade: 'rgba(180,150,210,0.14)', flower: ['#b48cd0', '#d8a0e0', '#9a7ab8'],
+      fairway: '#7d9460', fairway2: '#8aa06c', stripe: 'rgba(230,240,210,0.05)',
+      fringe: '#8a9e6b', green: '#a6bd80', greenSheen: 'rgba(225,240,205,0.16)',
+      sand: '#c8b890', sandEdge: 'rgba(80,70,50,0.6)',
+      water: ['#3a5570', '#26384f'], waterSheen: 'rgba(200,220,240,0.16)',
+      heather: '#9a6fb0', wall: '#8c8478', wallDark: '#6b6458', sky: ['#b8b0c8', '#8f8aa0'], mist: 'rgba(220,225,235,0.18)'
+    },
+    moon: {
+      roughTop: '#6a6f7b', roughBot: '#535863', blade: 'rgba(200,205,215,0.06)', flower: ['#aeb4c0', '#c8ccd6'],
+      fairway: '#878d9a', fairway2: '#959ba8', stripe: 'rgba(230,235,245,0.05)',
+      fringe: '#9298a5', green: '#a7adba', greenSheen: 'rgba(235,240,250,0.14)',
+      sand: '#b8bcc6', sandEdge: 'rgba(60,64,72,0.6)',
+      water: ['#3a3f4a', '#2a2e36'], waterSheen: 'rgba(180,190,210,0.10)',
+      crater: '#5a5f6b', craterDark: '#42464f', craterRim: '#9aa0ad', sky: ['#05060a', '#0a0c14'], earth: true
+    },
+    mars: {
+      roughTop: '#9c4a30', roughBot: '#7a3620', blade: 'rgba(150,70,40,0.16)', flower: ['#c87a52', '#e0996a'],
+      fairway: '#b5613f', fairway2: '#c47049', stripe: 'rgba(255,220,190,0.05)',
+      fringe: '#bd6a46', green: '#cf8a5c', greenSheen: 'rgba(255,225,200,0.12)',
+      sand: '#c98a5a', sandEdge: 'rgba(90,40,25,0.65)',
+      water: ['#7a8aa0', '#5a6a80'], waterSheen: 'rgba(220,235,255,0.16)',
+      rock: '#8a3a24', rockDark: '#6a2a18', ice: 'rgba(220,235,245,0.7)', sky: ['#d8a07a', '#c07850'], dust: 'rgba(200,120,80,0.12)'
+    },
+    sky: {
+      roughTop: '#4e8e5a', roughBot: '#3a7046', blade: 'rgba(200,245,190,0.10)', flower: ['#ffd36b', '#ff9ab0', '#ffffff'],
+      fairway: '#74c266', fairway2: '#82cd74', stripe: 'rgba(255,255,255,0.06)',
+      fringe: '#7fc873', green: '#98dc88', greenSheen: 'rgba(235,255,220,0.18)',
+      sand: '#ecd9a9', sandEdge: 'rgba(120,100,60,0.5)',
+      water: ['#3b6ea5', '#2a5080'], waterSheen: 'rgba(220,240,255,0.20)',
+      voidTop: '#bfe0ff', voidBot: '#5f8fc5', islandEdge: '#6a4a32', islandRock: '#8a6446', cloud: 'rgba(255,255,255,0.7)', sky: ['#cfe8ff', '#7fb2e0']
     }
   };
   function pal(hole) { return T[hole.courseTheme] || T.willow; }
@@ -303,11 +343,13 @@
   function drawTeeBox(ctx, hole, p, theme) {
     if (!hole.tee || hole.tee.length < 3) return;
     var b = bounds(hole.tee);
-    // solid base first (kills any see-through look), then a tee-tone overlay
-    fillPoly(ctx, hole.tee, p.fairway, null, 0);
-    var teeTop = shade(p.fairway2, 1.04), teeBot = shade(p.fairway, 0.9);
+    // GUARANTEED opaque base in a DISTINCT tee tone (not the fairway colour,
+    // which would look identical to — and thus see-through to — the fairway).
+    var teeBase = shade(p.fairway, 0.86);
+    fillPoly(ctx, hole.tee, teeBase, null, 0);
+    var teeTop = shade(p.fairway2, 0.96), teeBot = shade(p.fairway, 0.8);
     fillPoly(ctx, hole.tee, lin(ctx, 0, b.minY, 0, b.maxY, [[0, teeTop], [1, teeBot]]),
-             'rgba(30,62,28,0.7)', 2);
+             'rgba(20,48,20,0.85)', 2.5);
     clipPoly(ctx, hole.tee, function () {
       // fine tee-mowing stripes (tighter than fairway) for a manicured look
       for (var x = b.minX - 4; x <= b.maxX + 4; x += 8) {
@@ -367,7 +409,10 @@
     fillPoly(ctx, hole.greenRing, p.fringe, 'rgba(45,100,45,0.34)', 2);
     var b = bounds(hole.green);
     var cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
-    // domed green: radial light toward crown
+    // GUARANTEED opaque base first — kills any chance of the fairway/rough
+    // showing through the gradient on top.
+    fillPoly(ctx, hole.green, p.green, null, 0);
+    // domed green: radial light toward crown (layered over the solid base)
     fillPoly(ctx, hole.green, rad(ctx, cx - 6, cy - 6, 3, Math.max(b.maxX - b.minX, b.maxY - b.minY) * 0.7,
       [[0, p.green], [1, theme === 'silver' ? '#8fd0b0' : '#86c96a']]), 'rgba(56,120,47,0.4)', 2);
     clipPoly(ctx, hole.green, function () {

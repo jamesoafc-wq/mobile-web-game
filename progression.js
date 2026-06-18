@@ -95,6 +95,8 @@
 
   // Course unlock requirements by level (id -> level). Willow always open.
   var COURSE_UNLOCK = { willow: 1, coral: 3, dunes: 6, pine: 10, silver: 15 };
+  // merge any unlocks registered by new-courses.js (it may load before/after)
+  try { if (window.NEW_COURSE_UNLOCKS) Object.assign(COURSE_UNLOCK, window.NEW_COURSE_UNLOCKS); } catch (e) {}
 
   // ---------- XP / coin awards ----------
   function holeXp(toPar, sweetCount) {
@@ -237,6 +239,7 @@
     // course unlock check by level
     courseUnlockLevel: function (cid) { return COURSE_UNLOCK[cid] || 1; },
     courseUnlocked: function (cid) { return levelInfo().level >= (COURSE_UNLOCK[cid] || 1); },
+    _registerCourseUnlock: function (cid, lvl) { COURSE_UNLOCK[cid] = lvl; },
 
     // buy a ball: must have coins AND meet level; returns true on success
     buyBall: function (id) {
