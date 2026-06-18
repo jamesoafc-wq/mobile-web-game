@@ -272,7 +272,14 @@
       state.equippedTracer = id; save(); return true;
     },
     // dev/testing helper
-    _reset: function () { state = Object.assign({}, DEFAULT, { ownedBalls: ['classic'], bestScores: {} }); save(); }
+    _reset: function () { state = Object.assign({}, DEFAULT, { ownedBalls: ['classic'], ownedTracers: ['classic'], bestScores: {} }); save(); },
+    // DEV: jump to a high level + coins so every course/cosmetic is testable.
+    _devMaxAll: function () {
+      state.xp = Math.max(state.xp, xpForLevel(53));   // comfortably past level 52
+      state.coins = Math.max(state.coins, 999999);
+      save();
+      return levelInfo().level;
+    }
   };
 
   window.progressionLoaded = true;
