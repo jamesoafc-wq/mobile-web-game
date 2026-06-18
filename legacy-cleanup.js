@@ -33,25 +33,60 @@
     drawBall = function drawBallFinalSkin() {
       baseBall();
       try {
-        if (!ball || ball.flight) return;
+        if (!ball) return;
         if (!isFinite(ball.x) || !isFinite(ball.y) || !(ball.radius > 0)) return;
         var sk = Progress.ballById(Progress.equipped());
         if (!sk || sk.id === 'classic') return;
-        var r = ball.radius;
+        // match the base ball's drawn size (it scales up during flight)
+        var vs = (typeof ball.visualScale === 'number' && ball.visualScale > 0) ? ball.visualScale : 1;
+        var r = ball.radius * vs;
         ctx.save();
         var grd = ctx.createRadialGradient(ball.x - r * 0.3, ball.y - r * 0.3, r * 0.2, ball.x, ball.y, r);
         grd.addColorStop(0, sk.color);
         grd.addColorStop(1, sk.accent);
         ctx.fillStyle = grd;
         ctx.beginPath(); ctx.arc(ball.x, ball.y, r, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.beginPath(); ctx.arc(ball.x - r * 0.32, ball.y - r * 0.32, r * 0.28, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.16)';
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.beginPath(); ctx.arc(ball.x - r * 0.32, ball.y - r * 0.32, Math.max(1.2, r * 0.26), 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       } catch (e) {}
     };
   }
 
-  // 3) make sure the menu renders the new (clean) layout now
+  // 3) re-apply the equipped-tracer colour to the driver trail. The legacy
+  // customisation-v057 re-overrode drawDriverTrailV038 with its own colour AFTER
+  // progression.js set ours, so we install ours again here (loads last → wins).
+  if (typeof drawDriverTrailV038 === 'function' && window.Progress) {
+    function _hexA(hex, a) {
+      var h = hex.replace('#', '');
+      return 'rgba(' + parseInt(h.slice(0, 2), 16) + ',' + parseInt(h.slice(2, 4), 16) + ',' + parseInt(h.slice(4, 6), 16) + ',' + a + ')';
+    }
+    drawDriverTrailV038 = function drawDriverTrailFinal() {
+      try {
+        if (typeof driverTrailV038 === 'undefined' || driverTrailV038.length < 2) return;
+        var nowMs = (performance && performance.now) ? performance.now() : Date.now();
+        if (!driverTrailActiveV038 && nowMs > driverTrailUntilV038) return;
+        var colour = Progress.tracerById(Progress.equippedTracer()).color;
+        var cam = getCamera();
+        ctx.save();
+        ctx.setTransform(cam.zoom, 0, 0, cam.zoom, cam.tx, cam.ty);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = _hexA(colour, 0.28); ctx.lineWidth = 5.4;
+        ctx.beginPath();
+        driverTrailV038.forEach(function (p, idx) { idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
+        ctx.stroke();
+        ctx.strokeStyle = _hexA(colour, 0.88); ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        driverTrailV038.forEach(function (p, idx) { idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
+        ctx.stroke();
+        ctx.restore();
+      } catch (e) {}
+    };
+  }
+
+  // 4) make sure the menu renders the new (clean) layout now
   try { if (typeof renderCourseMenuV045 === 'function') renderCourseMenuV045(); } catch (e) {}
 
   window.legacyCleanupLoaded = true;
