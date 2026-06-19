@@ -200,55 +200,58 @@
   // ---- Magnolia Grand detailing ----
   function detailMasters(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
-    var AZ = ['#e87fb0', '#ff6fa0', '#ffffff', '#d86a9a', '#f4a8c8'];
+    // immaculate, lush dark-green tree colour set (Augusta-style pines/hardwoods)
+    var MAS_TREE = { trunk: '#5a3f28', shadow: 'rgba(12,38,18,0.34)', dark: '#155a30', mid: '#1f7a40', light: '#39a35e' };
 
-    // 1) azalea banks hugging the green ring (the signature look)
-    if (hole.greenRing && hole.greenRing.length > 3) {
-      var ring = hole.greenRing;
-      var count = 14;
-      for (var i = 0; i < count; i++) {
-        var t = i / count + rnd() * 0.02;
-        var pt = polyCentroidEdge(ring, t);
-        var gb = pbounds(hole.green);
-        // push the bush slightly outward from the green centre
-        var dx = pt.x - gb.cx, dy = pt.y - gb.cy, d = Math.hypot(dx, dy) || 1;
-        var ox = pt.x + (dx / d) * 5, oy = pt.y + (dy / d) * 5;
-        azaleaBush(ctx, ox, oy, 4 + rnd() * 3, rnd, AZ);
-      }
+    // 1) DENSE clean tree wall framing the hole (no blossom clutter)
+    scatterRough(hole, rnd, 30, 9, function (x, y, sc, r) {
+      if (r() < 0.78) chunkyTree(ctx, x, y, 1.15 + sc * 0.6, r, MAS_TREE);
+      else chunkyBush(ctx, x, y, sc, r, MAS_TREE);
+    });
+
+    // 2) a single restrained azalea flower bank tucked just behind the green
+    //    (the one tasteful pop of colour — not bushes scattered everywhere)
+    if (hole.green && hole.green.length > 3) {
+      var gb = pbounds(hole.green);
+      flowerBank(ctx, gb.cx, gb.minY - 10, gb.w * 0.7, rnd);
     }
 
-    // 2) bright white-sand sparkle on bunkers
+    // 3) brilliant white-sand sheen on bunkers (kept — it's a signature)
     if (hole.bunkers) {
       hole.bunkers.forEach(function (bk) {
         if (!bk || bk.length < 3) return;
         var bb = pbounds(bk);
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        for (var s = 0; s < 8; s++) {
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        for (var s = 0; s < 6; s++) {
           var sx = bb.minX + rnd() * bb.w, sy = bb.minY + rnd() * bb.h;
           ctx.beginPath(); ctx.arc(sx, sy, 0.6, 0, Math.PI * 2); ctx.fill();
         }
       });
     }
 
-    // 3) fountains in any water
+    // 4) a tasteful fountain only if there's a water feature
     if (hole.water && hole.water.length > 3) {
       var wb = pbounds(hole.water);
       fountain(ctx, wb.cx, wb.cy, timeMs);
     }
+  }
 
-    // 4) DENSE blossoming trees filling the rough (avoiding play)
-    scatterRough(hole, rnd, 26, 10, function (x, y, sc, r) {
-      if (r() < 0.7) blossomTree(ctx, x, y, 1.6 + sc * 0.7, r, AZ);
-      else chunkyBush(ctx, x, y, sc, r, TREECOL.parkland);
-    });
-
-    // 5) grandstands with spectators, set back in the rough behind the green
-    var gb2 = pbounds(hole.green);
-    grandstand(ctx, Math.max(40, gb2.minX - 40), gb2.minY - 18, 54, rnd);
-    grandstand(ctx, Math.min(380, gb2.maxX + 40) - 54, gb2.cy - 10, 48, rnd);
-
-    // 6) gallery ropes on stakes lining the fairway corridor
-    if (hole.fairway && hole.fairway.length > 3) galleryRopes(ctx, hole.fairway, rnd);
+  // a low, neat bank of azalea colour (a soft mound of pink/white dabs, not bushes)
+  function flowerBank(ctx, cx, cy, w, rnd) {
+    var AZ = ['#e87fb0', '#ff8fc0', '#ffffff', '#d86a9a'];
+    var n = Math.max(18, Math.floor(w / 4));
+    // green base mound
+    ctx.fillStyle = '#1f7a40';
+    ctx.beginPath(); ctx.ellipse(cx, cy, w * 0.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#155a30';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 1.5, w * 0.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    // flower dabs across the mound
+    for (var i = 0; i < n; i++) {
+      var fx = cx - w * 0.48 + (i / n) * w * 0.96 + (rnd() - 0.5) * 3;
+      var fy = cy - 2 + (rnd() - 0.5) * 5;
+      ctx.fillStyle = AZ[Math.floor(rnd() * AZ.length)];
+      ctx.beginPath(); ctx.arc(fx, fy, 1.1 + rnd() * 1, 0, Math.PI * 2); ctx.fill();
+    }
   }
 
   // tiered grandstand packed with little spectators
