@@ -233,7 +233,26 @@
     if (hole.water && hole.water.length > 3) {
       var wb = pbounds(hole.water);
       fountain(ctx, wb.cx, wb.cy, timeMs);
+    } else if ((holeSeed(hole) % 2) === 0) {
+      // decorative pond in a rough corner on ~half the holes (more water feel)
+      var corners = [[70, 200], [350, 240], [80, 480], [340, 500]];
+      for (var ci = 0; ci < corners.length; ci++) {
+        var px = corners[ci][0], py = corners[ci][1];
+        if (!onPlay(hole, px, py, 30)) { decorPond(ctx, px, py, 26, 18, timeMs); break; }
+      }
     }
+  }
+  // a small ornamental pond (flat banded water + edge + fountain)
+  function decorPond(ctx, cx, cy, rx, ry, timeMs) {
+    ctx.save();
+    ctx.fillStyle = '#1d6fa8'; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2f9ad0'; ctx.beginPath(); ctx.ellipse(cx, cy - 2, rx * 0.8, ry * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#3aa85e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    // sparkle
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    for (var i = 0; i < 8; i++) { ctx.fillRect(cx - rx + Math.random() * rx * 2, cy - ry + Math.random() * ry * 2, 1.2, 1.2); }
+    fountain(ctx, cx, cy, timeMs);
+    ctx.restore();
   }
 
   // a low, neat bank of azalea colour (a soft mound of pink/white dabs, not bushes)
@@ -372,9 +391,15 @@
   function detailCliffs(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     var t = (timeMs || 0) * 0.001;
-    // a lighthouse on a headland (one per hole, deterministic position)
-    var lx = (holeSeed(hole) % 2) ? 56 : 364, ly = 110 + (holeSeed(hole) % 90);
-    lighthouse(ctx, lx, ly, t);
+    // a lighthouse on a clifftop corner — only on a few holes, and only if the
+    // corner is actually rough (never mid-fairway).
+    if ((holeSeed(hole) % 3) === 0) {
+      var corners = [[28, 96], [392, 96], [28, 150], [392, 150]];
+      for (var ci = 0; ci < corners.length; ci++) {
+        var lx = corners[ci][0], ly = corners[ci][1];
+        if (!onPlay(hole, lx, ly, 22)) { lighthouse(ctx, lx, ly, t); break; }
+      }
+    }
     // crashing surf foam along the bottom/edges (animated)
     ctx.save();
     for (var i = 0; i < 22; i++) {
@@ -524,11 +549,20 @@
   // ========================================================================
   function detailMoon(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
+    // space scenery: faint stars scattered in the dark rough (avoid play)
+    scatterRough(hole, rnd, 60, 2, function (x, y, sc, r) {
+      var br = 0.3 + r() * 0.6;
+      ctx.fillStyle = 'rgba(255,255,255,' + br.toFixed(2) + ')';
+      var sz = r() < 0.85 ? 0.8 : 1.5;
+      ctx.fillRect(x, y, sz, sz);
+      if (r() > 0.95) { // occasional twinkle cross
+        ctx.fillRect(x - 1, y + 0.4, 3, 0.4); ctx.fillRect(x + 0.4, y - 1, 0.4, 3);
+      }
+    });
     // craters scattered across the rough (ringed depressions)
     for (var i = 0; i < 16; i++) {
       var cx = 10 + rnd() * 400, cy = 80 + rnd() * 590, cr = 5 + rnd() * 14;
-      // skip near the green/fairway centre roughly
-      crater(ctx, cx, cy, cr, rnd);
+      if (!onPlay(hole, cx, cy, 6)) crater(ctx, cx, cy, cr, rnd);
     }
     // Earth hanging in the black sky (top area), with a soft glow
     earthInSky(ctx, 340, 70);
@@ -578,6 +612,16 @@
   function detailMars(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     var t = (timeMs || 0) * 0.001;
+    // faint stars in the dusty sky + a small distant moon (Phobos)
+    scatterRough(hole, rnd, 36, 2, function (x, y, sc, r) {
+      if (y > 200) return;
+      ctx.fillStyle = 'rgba(255,240,230,' + (0.25 + r() * 0.4).toFixed(2) + ')';
+      ctx.fillRect(x, y, r() < 0.85 ? 0.8 : 1.4, r() < 0.85 ? 0.8 : 1.4);
+    });
+    if ((holeSeed(hole) % 2) === 0) {
+      ctx.fillStyle = '#b8a89a'; ctx.beginPath(); ctx.arc(58, 96, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#9a8a7a'; ctx.beginPath(); ctx.arc(60, 98, 2, 0, Math.PI * 2); ctx.fill();
+    }
     // boulder fields
     for (var i = 0; i < 20; i++) {
       var rx = 10 + rnd() * 400, ry = 80 + rnd() * 590, rr = 2 + rnd() * 5;
@@ -700,10 +744,44 @@
   }
   function detailCoral(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
+    // BEACH + lagoon along one edge of some holes (drawn first, behind props).
+    // Side rotates by hole so it's not always the same corner.
+    var beachSide = holeSeed(hole) % 4;  // 0 none, 1 left, 2 right, 3 top-corner
+    if (beachSide !== 0) coralBeach(ctx, hole, beachSide, timeMs);
+    // palms + bushes in the rough
     scatterRough(hole, rnd, 20, 9, function (x, y, sc, r) {
       if (r() < 0.6) palmTree(ctx, x, y, 1.0 + sc * 0.6, r);
       else chunkyBush(ctx, x, y, sc, r, TREECOL.palm);
     });
+  }
+  function coralBeach(ctx, hole, side, timeMs) {
+    var W = 420, H = 760, t = (timeMs || 0) * 0.001;
+    var sand = '#ecd9a9', sandDk = '#d8c08a', sea1 = '#3fb0c0', sea2 = '#2f8fa8';
+    ctx.save();
+    var band, seaBand;
+    if (side === 1) { band = { x: 0, y: 70, w: 58, h: H - 70 }; seaBand = { x: 0, y: 70, w: 26, h: H - 70 }; }
+    else if (side === 2) { band = { x: W - 58, y: 70, w: 58, h: H - 70 }; seaBand = { x: W - 26, y: 70, w: 26, h: H - 70 }; }
+    else { band = { x: 0, y: 70, w: W, h: 64 }; seaBand = { x: 0, y: 70, w: W, h: 28 }; }
+    // only paint where it's rough (don't cover fairway/green)
+    function paintCells(rect, colA, colB) {
+      for (var x = rect.x; x < rect.x + rect.w; x += 14) {
+        for (var y = rect.y; y < rect.y + rect.h; y += 14) {
+          if (onPlay(hole, x + 7, y + 7, 0)) continue;
+          ctx.fillStyle = ((Math.floor(x / 14) + Math.floor(y / 14)) % 2) ? colA : colB;
+          ctx.fillRect(x, y, 14.5, 14.5);
+        }
+      }
+    }
+    paintCells(band, sand, sandDk);
+    paintCells(seaBand, sea1, sea2);
+    // foam line + sparkle on the sea band
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    for (var i = 0; i < 30; i++) {
+      var fx = seaBand.x + (seaBand.w > 100 ? Math.random() * seaBand.w : seaBand.w * 0.8);
+      var fy = seaBand.y + (i / 30) * seaBand.h;
+      if (!onPlay(hole, fx, fy, 0)) ctx.fillRect(fx, fy + Math.sin(t * 2 + i) * 2, 1.6, 1.6);
+    }
+    ctx.restore();
   }
   function palmTree(ctx, x, y, scale, rnd) {
     var s = scale, col = TREECOL.palm;

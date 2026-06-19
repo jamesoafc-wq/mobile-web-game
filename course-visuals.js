@@ -610,7 +610,9 @@
     drawSurroundings(ctx, hole, W, H, p, theme, timeMs);
     var NO_OAK = { willow: 1, coral: 1, dunes: 1, pine: 1, silver: 1, moor: 1, cliffs: 1, autumn: 1, glades: 1, moon: 1, mars: 1, sky: 1, masters: 1 };
     if (!NO_OAK[theme] && typeof drawTrees === 'function') drawTrees(ctx, hole);
-    if (typeof drawProps === 'function') drawProps(ctx, hole);
+    // generic baked-in props (bushes/rocks) appear on every theme incl. the moon;
+    // suppress them on themed courses that supply their own props via course-detail.
+    if (!NO_OAK[theme] && typeof drawProps === 'function') drawProps(ctx, hole);
     if (typeof drawThemeExtrasV046 === 'function') drawThemeExtrasV046(ctx, hole);
     if (typeof drawCupAndFlag === 'function') drawCupAndFlag(ctx, hole);
     if (typeof drawSlopeRead === 'function') drawSlopeRead(ctx, hole, timeMs, !showSlope);

@@ -81,10 +81,19 @@
         grid[r][c] = surfaceAt(hole, c * TILE + TILE / 2, r * TILE + TILE / 2);
       }
     }
+    var isSky = (hole.courseTheme === 'sky');
     // 2) paint base tiles + texture
     for (var r2 = 0; r2 < rows; r2++) {
       for (var c2 = 0; c2 < cols; c2++) {
         var surf = grid[r2][c2];
+        // FLOATING ISLES: the "rough" is the open void/sky, not grass — so
+        // islands (fairway/green/tee) read as land suspended in sky.
+        if (isSky && surf === 'rough') {
+          var vy = (r2 * TILE) / H;
+          ctx.fillStyle = vy < 0.5 ? '#bfe0ff' : (vy < 0.8 ? '#9fc8f0' : '#7fb0e0');
+          ctx.fillRect(c2 * TILE, r2 * TILE, TILE + 0.6, TILE + 0.6);
+          continue;
+        }
         var pal = sk[surf] || sk.rough;
         var x = c2 * TILE, y = r2 * TILE;
         var rv = cellRand(c2, r2);
@@ -96,7 +105,7 @@
         // a striped lawn but still has grid-by-grid texture.
         if (surf === 'fairway' || surf === 'green' || surf === 'fringe' || surf === 'tee') {
           var band = Math.floor(c2 / 2) % 2;
-          ctx.fillStyle = band ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
+          ctx.fillStyle = band ? 'rgba(255,255,255,0.085)' : 'rgba(0,0,0,0.07)';
           ctx.fillRect(x, y, TILE + 0.6, TILE + 0.6);
         }
         // per-surface texture
@@ -142,21 +151,25 @@
   // expose the green's hill shading on top of tiles (kept subtle, clipped)
   function greenHillShade(hole, sk) {
     if (!hole.green || hole.green.length < 3) return;
+    var GF = window.GreenField;
+    if (!GF || !GF.sampleHeight) return;
     var b = { minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9 };
     hole.green.forEach(function (p) { b.minX = Math.min(b.minX, p.x); b.minY = Math.min(b.minY, p.y); b.maxX = Math.max(b.maxX, p.x); b.maxY = Math.max(b.maxY, p.y); });
-    var cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2, mr = Math.max(b.maxX - b.minX, b.maxY - b.minY) * 0.7;
-    ctx.save();
-    if (typeof clipToPolygon === 'function') {
-      clipToPolygon(ctx, hole.green, function () {
-        var hi = ctx.createRadialGradient(cx - 6, cy - 6, 2, cx - 6, cy - 6, mr);
-        hi.addColorStop(0, 'rgba(255,255,255,0.22)'); hi.addColorStop(0.6, 'rgba(255,255,255,0)');
-        ctx.fillStyle = hi; ctx.fillRect(b.minX - 10, b.minY - 10, (b.maxX - b.minX) + 20, (b.maxY - b.minY) + 20);
-        var sh = ctx.createRadialGradient(cx + 8, cy + 8, 2, cx + 8, cy + 8, mr);
-        sh.addColorStop(0, 'rgba(10,40,18,0)'); sh.addColorStop(1, 'rgba(10,40,18,0.4)');
-        ctx.fillStyle = sh; ctx.fillRect(b.minX - 10, b.minY - 10, (b.maxX - b.minX) + 20, (b.maxY - b.minY) + 20);
-      });
+    var hi = -1e9, lo = 1e9, samples = [];
+    for (var sy = b.minY; sy <= b.maxY; sy += TILE) {
+      for (var sx = b.minX; sx <= b.maxX; sx += TILE) {
+        if (!inPoly(sx + TILE / 2, sy + TILE / 2, hole.green)) continue;
+        var h = GF.sampleHeight(hole, sx + TILE / 2, sy + TILE / 2);
+        samples.push({ x: sx, y: sy, h: h });
+        if (h > hi) hi = h; if (h < lo) lo = h;
+      }
     }
-    ctx.restore();
+    var range = (hi - lo) || 1;
+    samples.forEach(function (s) {
+      var n = (s.h - lo) / range, d = (n - 0.5) * 2;
+      if (d > 0.05) { ctx.fillStyle = 'rgba(255,255,255,' + (d * 0.16).toFixed(3) + ')'; ctx.fillRect(s.x, s.y, TILE + 0.6, TILE + 0.6); }
+      else if (d < -0.05) { ctx.fillStyle = 'rgba(12,45,22,' + (-d * 0.20).toFixed(3) + ')'; ctx.fillRect(s.x, s.y, TILE + 0.6, TILE + 0.6); }
+    });
   }
 
   // theme palette lookup (reuse the global theme table via a tiny probe)
