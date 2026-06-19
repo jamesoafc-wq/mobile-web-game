@@ -159,6 +159,9 @@
     }
   };
   function pal(hole) { return T[hole.courseTheme] || T.willow; }
+  // expose palettes for other modules (tile renderer etc.)
+  window.__themePalette = function (hole) { return T[hole && hole.courseTheme] || T.willow; };
+  window.__themeTable = T;
 
   // ============================ COASTLINE (coral) ==========================
   // Some coral holes run along the shore, others turn inland — giving the
@@ -592,27 +595,30 @@
       drawTeeBox(ctx, hole, p, theme);
       drawBunkers(ctx, hole, p, theme);
       drawGreen(ctx, hole, p, theme);
-      // surroundings sit behind the in-play trees/props so playable items read on top
-      drawSurroundings(ctx, hole, W, H, p, theme, timeMs);
-      // Base oaks only suit the parkland-style courses. Coral is palms-only,
-      // dunes is a treeless links; coral is palms-only; and every NEW themed
-      // course supplies its own course-specific trees via course-detail.js — so
-      // skip the generic oaks on all of them to avoid mismatched/duplicate trees.
-      var NO_OAK = { coral: 1, dunes: 1, moor: 1, cliffs: 1, autumn: 1, glades: 1, moon: 1, mars: 1, sky: 1, masters: 1 };
-      var drawOaks = !NO_OAK[theme];
-      if (drawOaks && typeof drawTrees === 'function') drawTrees(ctx, hole);
-      if (typeof drawProps === 'function') drawProps(ctx, hole);
-      if (typeof drawThemeExtrasV046 === 'function') drawThemeExtrasV046(ctx, hole);
-      if (typeof drawCupAndFlag === 'function') drawCupAndFlag(ctx, hole);
-      if (typeof drawSlopeRead === 'function') {
-        // full reading while putting; a subtle approach-aid version off the green
-        drawSlopeRead(ctx, hole, timeMs, !showSlope);
-      }
+      drawCourseDecorV046(ctx, hole, W, H, p, theme, timeMs, showSlope);
     } catch (e) {
       // On any error, fall back to the previous themed renderer so the game is
       // never left unrendered.
       try { prevDrawCourse(ctx, hole, W, H, timeMs, showSlope); } catch (_) {}
     }
+  };
+
+  // Decor-only pass (everything that sits ON TOP of the surfaces). Exposed
+  // globally so an alternate surface renderer (tile-render.js) can paint its own
+  // surfaces and then call this to layer trees/props/cup/flag/slope-read on top.
+  function drawCourseDecorV046(ctx, hole, W, H, p, theme, timeMs, showSlope) {
+    drawSurroundings(ctx, hole, W, H, p, theme, timeMs);
+    var NO_OAK = { coral: 1, dunes: 1, moor: 1, cliffs: 1, autumn: 1, glades: 1, moon: 1, mars: 1, sky: 1, masters: 1 };
+    if (!NO_OAK[theme] && typeof drawTrees === 'function') drawTrees(ctx, hole);
+    if (typeof drawProps === 'function') drawProps(ctx, hole);
+    if (typeof drawThemeExtrasV046 === 'function') drawThemeExtrasV046(ctx, hole);
+    if (typeof drawCupAndFlag === 'function') drawCupAndFlag(ctx, hole);
+    if (typeof drawSlopeRead === 'function') drawSlopeRead(ctx, hole, timeMs, !showSlope);
+  }
+  // global entry point for the tile renderer
+  window.drawCourseDecorOnly = function (ctx2, hole, W2, H2, timeMs, showSlope) {
+    var p = pal(hole), theme = hole.courseTheme;
+    drawCourseDecorV046(ctx2, hole, W2, H2, p, theme, timeMs, showSlope);
   };
 
   window.courseVisualsLoaded = true;
