@@ -608,7 +608,7 @@
   // surfaces and then call this to layer trees/props/cup/flag/slope-read on top.
   function drawCourseDecorV046(ctx, hole, W, H, p, theme, timeMs, showSlope) {
     drawSurroundings(ctx, hole, W, H, p, theme, timeMs);
-    var NO_OAK = { coral: 1, dunes: 1, moor: 1, cliffs: 1, autumn: 1, glades: 1, moon: 1, mars: 1, sky: 1, masters: 1 };
+    var NO_OAK = { willow: 1, coral: 1, dunes: 1, pine: 1, silver: 1, moor: 1, cliffs: 1, autumn: 1, glades: 1, moon: 1, mars: 1, sky: 1, masters: 1 };
     if (!NO_OAK[theme] && typeof drawTrees === 'function') drawTrees(ctx, hole);
     if (typeof drawProps === 'function') drawProps(ctx, hole);
     if (typeof drawThemeExtrasV046 === 'function') drawThemeExtrasV046(ctx, hole);

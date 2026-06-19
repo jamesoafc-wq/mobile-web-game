@@ -18,6 +18,97 @@
   // ---- tiny self-contained helpers ----
   function seeded(seed) { var s = seed % 2147483647; if (s <= 0) s += 2147483646; return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
   function holeSeed(hole) { return Math.floor((hole.cup.x * 73 + hole.cup.y * 131 + (hole.par || 4) * 17)) || 1; }
+
+  function inPoly(x, y, poly) {
+    if (!poly || poly.length < 3) return false;
+    var inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  // is (x,y) on a playable surface we must NOT cover with props?
+  function onPlay(hole, x, y, pad) {
+    pad = pad || 0;
+    function near(poly) {
+      if (!poly || poly.length < 3) return false;
+      if (inPoly(x, y, poly)) return true;
+      if (pad > 0) { // cheap padding: test a ring of points
+        for (var a = 0; a < 6.28; a += 1.05) if (inPoly(x + Math.cos(a) * pad, y + Math.sin(a) * pad, poly)) return true;
+      }
+      return false;
+    }
+    if (near(hole.fairway)) return true;
+    if (near(hole.greenRing)) return true;
+    if (near(hole.green)) return true;
+    if (near(hole.tee)) return true;
+    if (hole.water && near(hole.water)) return true;
+    if (hole.bunkers) for (var i = 0; i < hole.bunkers.length; i++) if (near(hole.bunkers[i])) return true;
+    return false;
+  }
+  // Scatter `count` props densely across the ROUGH (avoiding play), calling
+  // draw(x,y,scale,rnd) for each accepted point. Returns how many placed.
+  function scatterRough(hole, rnd, count, pad, draw) {
+    var placed = 0, tries = 0, max = count * 8;
+    var W = 420, H = 760;
+    while (placed < count && tries < max) {
+      tries++;
+      var x = 8 + rnd() * (W - 16), y = 74 + rnd() * (H - 150);
+      if (onPlay(hole, x, y, pad)) continue;
+      draw(x, y, 0.85 + rnd() * 0.6, rnd);
+      placed++;
+    }
+    return placed;
+  }
+
+  // ---- CHUNKY pixel-art tree (layered opaque clumps + hard shadow) ----
+  // styleColours: { trunk, shadow, dark, mid, light }
+  function chunkyTree(ctx, x, y, scale, rnd, col) {
+    var s = scale;
+    // hard drop shadow (consistent light down-right), opaque-ish
+    ctx.fillStyle = col.shadow || 'rgba(20,50,25,0.32)';
+    ctx.beginPath(); ctx.ellipse(x + 5 * s, y + 5 * s, 9 * s, 4 * s, 0, 0, Math.PI * 2); ctx.fill();
+    // trunk
+    ctx.fillStyle = col.trunk || '#6a4a2c';
+    ctx.fillRect(x - 1.6 * s, y + 1 * s, 3.2 * s, 6 * s);
+    // canopy: 3 stacked opaque clumps, dark base -> mid -> light cap
+    var clumps = [
+      { dx: 0, dy: -2, r: 9, c: col.dark },
+      { dx: -3, dy: -5, r: 6.5, c: col.mid },
+      { dx: 3, dy: -5, r: 6, c: col.mid },
+      { dx: -1, dy: -8, r: 5.5, c: col.light }
+    ];
+    clumps.forEach(function (cl) {
+      ctx.fillStyle = cl.c;
+      ctx.beginPath(); ctx.arc(x + cl.dx * s, y + cl.dy * s, cl.r * s, 0, Math.PI * 2); ctx.fill();
+    });
+    // a couple of darker dabs for leaf texture
+    ctx.fillStyle = col.dark;
+    for (var i = 0; i < 3; i++) {
+      ctx.beginPath(); ctx.arc(x + (rnd() - 0.5) * 12 * s, y - 5 * s + (rnd() - 0.5) * 8 * s, 1.4 * s, 0, Math.PI * 2); ctx.fill();
+    }
+    // tiny light highlight on the cap (consistent light)
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath(); ctx.arc(x - 2 * s, y - 9 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+  }
+  // small bush (two clumps + shadow) for filler
+  function chunkyBush(ctx, x, y, scale, rnd, col) {
+    var s = scale;
+    ctx.fillStyle = col.shadow || 'rgba(20,50,25,0.3)';
+    ctx.beginPath(); ctx.ellipse(x + 2 * s, y + 2.5 * s, 5 * s, 2.2 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col.dark; ctx.beginPath(); ctx.arc(x, y, 4 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col.mid; ctx.beginPath(); ctx.arc(x - 1.5 * s, y - 1.5 * s, 2.6 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col.light; ctx.beginPath(); ctx.arc(x - 2 * s, y - 2 * s, 1.4 * s, 0, Math.PI * 2); ctx.fill();
+  }
+  // tree colour sets per family
+  var TREECOL = {
+    parkland: { trunk: '#6a4a2c', shadow: 'rgba(20,50,25,0.30)', dark: '#1f6b34', mid: '#2f8f46', light: '#4fb866' },
+    pine:     { trunk: '#5a3f28', shadow: 'rgba(15,40,20,0.32)', dark: '#1a5a36', mid: '#247048', light: '#3a9162' },
+    autumn:   { trunk: '#5a3a28', shadow: 'rgba(60,30,10,0.30)', dark: '#b5512c', mid: '#e0863c', light: '#f0bf57' },
+    palm:     { trunk: '#8a5a32', shadow: 'rgba(20,50,25,0.30)', dark: '#1f7a44', mid: '#2f9e57', light: '#54c878' }
+  };
+
   function pbounds(poly) {
     var minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
     for (var i = 0; i < poly.length; i++) {
@@ -145,14 +236,11 @@
       fountain(ctx, wb.cx, wb.cy, timeMs);
     }
 
-    // 4) blossoming trees scattered in the rough margins (away from play)
-    var nTrees = 7;
-    for (var k = 0; k < nTrees; k++) {
-      var edge = rnd();
-      var tx = edge < 0.5 ? 14 + rnd() * 46 : 360 + rnd() * 46 - 46;
-      var ty = 80 + rnd() * 580;
-      blossomTree(ctx, tx, ty, 1.9 + rnd() * 0.9, rnd, AZ);
-    }
+    // 4) DENSE blossoming trees filling the rough (avoiding play)
+    scatterRough(hole, rnd, 26, 10, function (x, y, sc, r) {
+      if (r() < 0.7) blossomTree(ctx, x, y, 1.6 + sc * 0.7, r, AZ);
+      else chunkyBush(ctx, x, y, sc, r, TREECOL.parkland);
+    });
 
     // 5) grandstands with spectators, set back in the rough behind the green
     var gb2 = pbounds(hole.green);
@@ -341,11 +429,11 @@
       ctx.save(); ctx.translate(lx, ly); ctx.rotate(rnd() * Math.PI);
       ctx.beginPath(); ctx.ellipse(0, 0, 1.6, 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
-    // big autumn trees with full coloured canopies in the margins
-    for (var k = 0; k < 7; k++) {
-      var tx = (rnd() < 0.5 ? 16 + rnd() * 44 : 360 + rnd() * 44 - 44), ty = 80 + rnd() * 580;
-      autumnTree(ctx, tx, ty, 1.8 + rnd() * 1.1, rnd, LEAF);
-    }
+    // big autumn trees densely filling the rough (chunky pixel style)
+    scatterRough(hole, rnd, 30, 9, function (x, y, sc, r) {
+      if (r() < 0.72) chunkyTree(ctx, x, y, 1.1 + sc * 0.6, r, TREECOL.autumn);
+      else chunkyBush(ctx, x, y, sc, r, TREECOL.autumn);
+    });
     // a rustic log pile
     logPile(ctx, (holeSeed(hole) % 2) ? 64 : 356, 200 + (holeSeed(hole) % 200), rnd);
   }
@@ -372,11 +460,11 @@
   function detailGlades(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     var t = (timeMs || 0) * 0.001;
-    // cypress trees with hanging moss in the margins
-    for (var k = 0; k < 6; k++) {
-      var tx = (rnd() < 0.5 ? 16 + rnd() * 50 : 356 + rnd() * 44 - 44), ty = 90 + rnd() * 560;
-      cypress(ctx, tx, ty, 1.6 + rnd() * 0.8, rnd);
-    }
+    // cypress trees densely filling the rough margins
+    scatterRough(hole, rnd, 22, 9, function (x, y, sc, r) {
+      if (r() < 0.7) cypress(ctx, x, y, 1.3 + sc * 0.6, r);
+      else chunkyBush(ctx, x, y, sc, r, TREECOL.pine);
+    });
     // lily pads + reeds in/around water
     if (hole.water && hole.water.length > 3) {
       var wb = pbounds(hole.water);
@@ -582,6 +670,70 @@
     ctx.restore();
   }
 
+  // ---- original-course detailing in the new chunky style ----
+  function detailWillow(ctx, hole, timeMs) {
+    var rnd = seeded(holeSeed(hole));
+    scatterRough(hole, rnd, 30, 9, function (x, y, sc, r) {
+      if (r() < 0.74) chunkyTree(ctx, x, y, 1.1 + sc * 0.6, r, TREECOL.parkland);
+      else chunkyBush(ctx, x, y, sc, r, TREECOL.parkland);
+    });
+  }
+  function detailPine(ctx, hole, timeMs) {
+    var rnd = seeded(holeSeed(hole));
+    scatterRough(hole, rnd, 34, 8, function (x, y, sc, r) {
+      pineTree(ctx, x, y, 1.1 + sc * 0.7, r);
+    });
+  }
+  function pineTree(ctx, x, y, scale, rnd) {
+    var s = scale, col = TREECOL.pine;
+    ctx.fillStyle = col.shadow; ctx.beginPath(); ctx.ellipse(x + 4 * s, y + 5 * s, 6 * s, 3 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col.trunk; ctx.fillRect(x - 1 * s, y + 2 * s, 2 * s, 5 * s);
+    // stacked conical tiers
+    for (var i = 0; i < 3; i++) {
+      var yy = y + 2 * s - i * 4 * s, w = (7 - i * 1.8) * s;
+      ctx.fillStyle = i === 2 ? col.light : (i === 1 ? col.mid : col.dark);
+      ctx.beginPath(); ctx.moveTo(x - w, yy); ctx.lineTo(x + w, yy); ctx.lineTo(x, yy - 6 * s); ctx.closePath(); ctx.fill();
+    }
+  }
+  function detailCoral(ctx, hole, timeMs) {
+    var rnd = seeded(holeSeed(hole));
+    scatterRough(hole, rnd, 20, 9, function (x, y, sc, r) {
+      if (r() < 0.6) palmTree(ctx, x, y, 1.0 + sc * 0.6, r);
+      else chunkyBush(ctx, x, y, sc, r, TREECOL.palm);
+    });
+  }
+  function palmTree(ctx, x, y, scale, rnd) {
+    var s = scale, col = TREECOL.palm;
+    ctx.fillStyle = col.shadow; ctx.beginPath(); ctx.ellipse(x + 4 * s, y + 4 * s, 7 * s, 3 * s, 0, 0, Math.PI * 2); ctx.fill();
+    // curved trunk
+    ctx.strokeStyle = col.trunk; ctx.lineWidth = 2.2 * s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y + 4 * s); ctx.quadraticCurveTo(x + 2 * s, y - 4 * s, x + 1 * s, y - 9 * s); ctx.stroke();
+    // fronds
+    var fx = x + 1 * s, fy = y - 9 * s;
+    [-1.4, -0.7, 0, 0.7, 1.4].forEach(function (a) {
+      ctx.strokeStyle = a % 2 === 0 ? col.mid : col.dark; ctx.lineWidth = 1.6 * s;
+      ctx.beginPath(); ctx.moveTo(fx, fy); ctx.quadraticCurveTo(fx + Math.cos(a - 1.57) * 8 * s, fy + Math.sin(a - 1.57) * 8 * s - 2 * s, fx + Math.cos(a - 1.57) * 12 * s, fy + Math.sin(a - 1.57) * 12 * s); ctx.stroke();
+    });
+    // coconuts
+    ctx.fillStyle = '#5a3a22'; ctx.beginPath(); ctx.arc(fx - 1.5 * s, fy + 1 * s, 1.2 * s, 0, Math.PI * 2); ctx.fill();
+  }
+  function detailDunes(ctx, hole, timeMs) {
+    // treeless links — just sparse marram grass tufts, no trees
+    var rnd = seeded(holeSeed(hole));
+    scatterRough(hole, rnd, 40, 4, function (x, y, sc, r) {
+      ctx.strokeStyle = '#b8b06a'; ctx.lineWidth = 0.8;
+      for (var i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + i - 2, y); ctx.lineTo(x + i - 2 + (r() - 0.5) * 4, y - 5 - r() * 4); ctx.stroke(); }
+    });
+  }
+  function detailSilver(ctx, hole, timeMs) {
+    var rnd = seeded(holeSeed(hole));
+    scatterRough(hole, rnd, 26, 9, function (x, y, sc, r) {
+      // twilight birches: pale trunks, cool canopy
+      if (r() < 0.7) chunkyTree(ctx, x, y, 1.0 + sc * 0.5, r, { trunk: '#cfd6d0', shadow: 'rgba(30,50,55,0.3)', dark: '#3a7a6a', mid: '#4f9e88', light: '#79c8b0' });
+      else chunkyBush(ctx, x, y, sc, r, { shadow: 'rgba(30,50,55,0.3)', dark: '#3a7a6a', mid: '#4f9e88', light: '#79c8b0' });
+    });
+  }
+
   // ---- wrap the theme-extras dispatcher ----
   var beforeExtras = drawThemeExtrasV046;
   drawThemeExtrasV046 = function drawThemeExtrasDetailed(ctx, hole) {
@@ -597,8 +749,31 @@
       else if (th === 'moon') detailMoon(ctx, hole, t);
       else if (th === 'mars') detailMars(ctx, hole, t);
       else if (th === 'sky') detailSky(ctx, hole, t);
+      else if (th === 'willow') detailWillow(ctx, hole, t);
+      else if (th === 'coral') detailCoral(ctx, hole, t);
+      else if (th === 'dunes') detailDunes(ctx, hole, t);
+      else if (th === 'pine') detailPine(ctx, hole, t);
+      else if (th === 'silver') detailSilver(ctx, hole, t);
     } catch (e) {}
   };
+
+  // The original 5 courses don't tag their holes with a courseTheme (only the
+  // new courses do), so their new chunky-tree detailing never fired. Stamp the
+  // theme from the course id when a course is applied.
+  var ORIG_THEME = { willow: 'willow', coral: 'coral', dunes: 'dunes', pine: 'pine', silver: 'silver' };
+  if (typeof applyCourseV045 === 'function') {
+    var beforeApply = applyCourseV045;
+    applyCourseV045 = function applyCourseThemed(course) {
+      beforeApply(course);
+      try {
+        var th = (course && course.theme) || ORIG_THEME[course && course.id];
+        if (th && typeof ROUND_HOLES_V035 !== 'undefined') {
+          ROUND_HOLES_V035.forEach(function (h) { if (!h.courseTheme) h.courseTheme = th; });
+          if (typeof hole !== 'undefined' && hole && !hole.courseTheme) hole.courseTheme = th;
+        }
+      } catch (e) {}
+    };
+  }
 
   window.courseDetailLoaded = true;
 })();
