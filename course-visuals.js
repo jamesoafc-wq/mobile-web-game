@@ -255,13 +255,28 @@
 
   // ============================ ROUGH / BACKDROP ===========================
   function drawRough(ctx, W, H, p, theme, timeMs) {
-    // vertical gradient base
-    ctx.fillStyle = lin(ctx, 0, 0, 0, H, [[0, p.roughTop], [1, p.roughBot]]);
+    // FLAT pixel-art ground: solid base, then a few large soft tonal patches in
+    // the theme's rough tones (no vertical gradient). Reads as stylised turf.
+    ctx.fillStyle = p.roughBot;
     ctx.fillRect(0, 0, W, H);
+    // large irregular lighter patches for organic flat variation
+    var r = (function () { var s = 12345; return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; })();
+    ctx.fillStyle = p.roughTop;
+    for (var i = 0; i < 7; i++) {
+      var px = r() * W, py = r() * H, pr = 70 + r() * 130;
+      ctx.beginPath(); ctx.ellipse(px, py, pr, pr * 0.7, r() * 6.28, 0, Math.PI * 2); ctx.fill();
+    }
+    // a third mid tone for depth if the theme provides one
+    if (p.rough3) {
+      ctx.fillStyle = p.rough3;
+      for (var j = 0; j < 4; j++) {
+        var qx = r() * W, qy = r() * H, qr = 50 + r() * 90;
+        ctx.beginPath(); ctx.ellipse(qx, qy, qr, qr * 0.65, r() * 6.28, 0, Math.PI * 2); ctx.fill();
+      }
+    }
 
-    // theme-specific rough character
+    // theme-specific rough character (kept; sits over the flat bands)
     if (theme === 'dunes') {
-      // wind-combed diagonal grain
       ctx.strokeStyle = p.blade;
       ctx.lineWidth = 1.4;
       for (var y = -10; y < H + 10; y += 7) {
@@ -325,8 +340,12 @@
   function drawWater(ctx, hole, timeMs, p, theme) {
     if (!hole.water || hole.water.length < 3) return;
     var b = bounds(hole.water);
-    fillPoly(ctx, hole.water, lin(ctx, 0, b.minY, 0, b.maxY, [[0, p.water[0]], [1, p.water[1]]]), p.sandEdge, 2);
+    // FLAT deep-water fill + crisp edge, then a flat lighter band on top (banded
+    // water like the reference, no gradient).
+    fillPoly(ctx, hole.water, p.water[1], 'rgba(20,50,70,0.55)', 2);
     clipPoly(ctx, hole.water, function () {
+      ctx.fillStyle = p.water[0];
+      ctx.beginPath(); ctx.ellipse(b.cx, b.minY + (b.maxY - b.minY) * 0.4, (b.maxX - b.minX) * 0.55, (b.maxY - b.minY) * 0.34, 0, 0, Math.PI * 2); ctx.fill();
       // coral: visible reef patches under the surface
       if (theme === 'coral') {
         var rr = rng(holeSeed(hole) + 5);
@@ -353,17 +372,25 @@
   // ============================ FAIRWAY ====================================
   function drawFairway(ctx, hole, p, theme) {
     var b = bounds(hole.fairway);
-    fillPoly(ctx, hole.fairway, lin(ctx, 0, b.minY, 0, b.maxY, [[0, p.fairway2], [1, p.fairway]]), 'rgba(35,74,33,0.4)', 2);
+    // hard drop shadow (consistent light: down-right) for that cut-out look
+    ctx.save(); ctx.translate(1.5, 2.5); ctx.globalAlpha = 0.16;
+    fillPoly(ctx, hole.fairway, '#0a2010', null, 0);
+    ctx.restore();
+    // FLAT fairway fill + crisp dark outline (no gradient)
+    fillPoly(ctx, hole.fairway, p.fairway, 'rgba(20,55,24,0.5)', 2);
     clipPoly(ctx, hole.fairway, function () {
-      // mowing stripes — alternating light bands, angled per theme
+      // a lighter band toward the top edge (soft sunlit side) — still flat
+      ctx.fillStyle = p.fairway2;
+      ctx.beginPath(); ctx.ellipse(b.cx, b.minY + (b.maxY - b.minY) * 0.32, (b.maxX - b.minX) * 0.52, (b.maxY - b.minY) * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+      // subtle mowing stripes
       var ang = (theme === 'dunes') ? 0.18 : (theme === 'pine') ? -0.12 : 0;
       ctx.save();
       ctx.translate(b.minX, b.minY);
       ctx.rotate(ang);
       var span = (b.maxX - b.minX) + (b.maxY - b.minY) + 80;
-      for (var i = -span; i < span; i += 30) {
-        ctx.fillStyle = ((Math.floor(i / 30) % 2) === 0) ? p.stripe : 'rgba(0,0,0,0.03)';
-        ctx.fillRect(i, -span, 15, span * 2);
+      for (var i = -span; i < span; i += 26) {
+        ctx.fillStyle = ((Math.floor(i / 26) % 2) === 0) ? p.stripe : 'rgba(0,0,0,0.03)';
+        ctx.fillRect(i, -span, 13, span * 2);
       }
       ctx.restore();
     });
@@ -423,10 +450,15 @@
         });
         ctx.restore();
       } else {
-        var grad = rad(ctx, (b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, 2, Math.max(b.maxX - b.minX, b.maxY - b.minY) * 0.7,
-          [[0, p.sand], [1, theme === 'coral' ? '#f0dca8' : '#d8c089']]);
-        fillPoly(ctx, bk, grad, p.sandEdge, 2);
+        // hard shadow + FLAT sand + crisp edge
+        ctx.save(); ctx.translate(1, 1.5); ctx.globalAlpha = 0.12;
+        fillPoly(ctx, bk, '#0a2010', null, 0);
+        ctx.restore();
+        fillPoly(ctx, bk, p.sand, p.sandEdge, 2);
         clipPoly(ctx, bk, function () {
+          // a slightly lighter flat centre for a touch of depth
+          ctx.fillStyle = theme === 'coral' ? '#f7e8c0' : 'rgba(255,255,255,0.18)';
+          ctx.beginPath(); ctx.ellipse((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.maxX - b.minX) * 0.32, (b.maxY - b.minY) * 0.3, 0, 0, Math.PI * 2); ctx.fill();
           // raked lines following the bunker's long axis
           for (var x = b.minX; x <= b.maxX; x += 9) {
             ctx.strokeStyle = 'rgba(120,90,40,0.10)';
@@ -447,13 +479,28 @@
     }
     var b = bounds(hole.green);
     var cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
-    // GUARANTEED opaque green base, then the domed gradient on top.
-    fillPoly(ctx, hole.green, p.green, null, 0);
-    fillPoly(ctx, hole.green, rad(ctx, cx - 6, cy - 6, 3, Math.max(b.maxX - b.minX, b.maxY - b.minY) * 0.7,
-      [[0, p.green], [1, theme === 'silver' ? '#8fd0b0' : '#86c96a']]), 'rgba(56,120,47,0.4)', 2);
+    var maxR = Math.max(b.maxX - b.minX, b.maxY - b.minY) * 0.7;
+    // hard drop shadow under the green (consistent light) for the raised look
+    ctx.save(); ctx.translate(1.5, 2.5); ctx.globalAlpha = 0.16;
+    fillPoly(ctx, hole.green, '#0a2010', null, 0);
+    ctx.restore();
+    // FLAT green base + crisp dark outline (no gradient base)
+    fillPoly(ctx, hole.green, p.green, 'rgba(30,80,38,0.5)', 2);
+    // DOME / HILL shading preserved: soft lit crown + soft far-side shadow,
+    // clipped inside the green so the slope still reads as a raised mound.
     clipPoly(ctx, hole.green, function () {
+      // lit crown toward the light (upper-left)
+      var hi = rad(ctx, cx - 7, cy - 7, 2, maxR, [[0, p.greenLite || '#7fe08f'], [0.55, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0)']]);
+      ctx.globalAlpha = 0.5; ctx.fillStyle = hi;
+      ctx.beginPath(); ctx.ellipse(cx, cy, maxR, maxR * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      // far-side shadow (lower-right) for the fall-away
+      var sh = rad(ctx, cx + 9, cy + 9, 2, maxR, [[0, 'rgba(20,60,28,0)'], [0.5, 'rgba(20,60,28,0)'], [1, 'rgba(20,60,28,0.5)']]);
+      ctx.fillStyle = sh;
+      ctx.beginPath(); ctx.ellipse(cx, cy, maxR, maxR * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+      // faint sheen fleck
       ctx.fillStyle = p.greenSheen;
-      ctx.beginPath(); ctx.ellipse(cx - 5, cy - 5, (b.maxX - b.minX) * 0.3, (b.maxY - b.minY) * 0.24, -0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx - 5, cy - 5, (b.maxX - b.minX) * 0.26, (b.maxY - b.minY) * 0.2, -0.3, 0, Math.PI * 2); ctx.fill();
     });
   }
 
