@@ -199,7 +199,22 @@
     safe(function () { sceneSunLight(hole, W, H); });
 
     // (3) depth passes OVER the surfaces
-    safe(function () { if (hole && hole.fairway) surfaceSheen(hole.fairway, shadowRgb, lightRgb, 1); });
+    safe(function () {
+      if (hole && hole.fairway) {
+        ctx.save();
+        // exclude the green + fringe from the fairway's sheen so the fairway
+        // depth gradient never bleeds on top of the green (which caused the
+        // "fairway visible through the green" look).
+        if (hole.greenRing && hole.greenRing.length > 2) {
+          ctx.beginPath();
+          ctx.rect(0, 0, W, H);
+          tracePoly(hole.greenRing);
+          ctx.clip('evenodd');
+        }
+        surfaceSheen(hole.fairway, shadowRgb, lightRgb, 1);
+        ctx.restore();
+      }
+    });
     safe(function () { if (hole && hole.green) { surfaceSheen(hole.green, shadowRgb, lightRgb, 1.1); greenDome(hole.green, lightRgb, shadowRgb); } });
     safe(function () { if (hole && hole.trees) treeDepth(hole.trees, shadowRgb, lightRgb); });
   };
