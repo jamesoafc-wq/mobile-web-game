@@ -65,32 +65,32 @@
   // ---- CHUNKY pixel-art tree (layered opaque clumps + hard shadow) ----
   // styleColours: { trunk, shadow, dark, mid, light }
   function chunkyTree(ctx, x, y, scale, rnd, col) {
-    var s = scale;
-    // hard drop shadow (consistent light down-right), opaque-ish
+    var s = scale * 1.35;   // bigger overall
+    // hard drop shadow (consistent light down-right)
     ctx.fillStyle = col.shadow || 'rgba(20,50,25,0.32)';
-    ctx.beginPath(); ctx.ellipse(x + 5 * s, y + 5 * s, 9 * s, 4 * s, 0, 0, Math.PI * 2); ctx.fill();
-    // trunk
+    ctx.beginPath(); ctx.ellipse(x + 6 * s, y + 6 * s, 11 * s, 4.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+    // trunk (tapered, two-tone)
     ctx.fillStyle = col.trunk || '#6a4a2c';
-    ctx.fillRect(x - 1.6 * s, y + 1 * s, 3.2 * s, 6 * s);
-    // canopy: 3 stacked opaque clumps, dark base -> mid -> light cap
-    var clumps = [
-      { dx: 0, dy: -2, r: 9, c: col.dark },
-      { dx: -3, dy: -5, r: 6.5, c: col.mid },
-      { dx: 3, dy: -5, r: 6, c: col.mid },
-      { dx: -1, dy: -8, r: 5.5, c: col.light }
-    ];
-    clumps.forEach(function (cl) {
-      ctx.fillStyle = cl.c;
-      ctx.beginPath(); ctx.arc(x + cl.dx * s, y + cl.dy * s, cl.r * s, 0, Math.PI * 2); ctx.fill();
-    });
-    // a couple of darker dabs for leaf texture
+    ctx.beginPath();
+    ctx.moveTo(x - 2.2 * s, y + 8 * s); ctx.lineTo(x - 1.4 * s, y + 1 * s);
+    ctx.lineTo(x + 1.4 * s, y + 1 * s); ctx.lineTo(x + 2.2 * s, y + 8 * s); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(x + 0.4 * s, y + 1 * s, 1.8 * s, 7 * s);
+    // canopy: fuller, more layered — dark base ring of clumps, mid fill, light cap
+    function clump(dx, dy, r, c) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, r * s, 0, Math.PI * 2); ctx.fill(); }
+    // dark base (broad)
+    clump(-5, -1, 7.5, col.dark); clump(5, -1, 7.5, col.dark); clump(0, -3, 9, col.dark);
+    clump(-7, -4, 5.5, col.dark); clump(7, -4, 5.5, col.dark);
+    // mid layer
+    clump(-3, -5, 6, col.mid); clump(3, -5, 6, col.mid); clump(0, -7, 6.5, col.mid);
+    clump(-6, -6, 4, col.mid); clump(6, -6, 4, col.mid);
+    // light cap (toward light, upper-left)
+    clump(-2, -9, 5, col.light); clump(2, -9.5, 4, col.light); clump(-4, -8, 3.5, col.light);
+    // leaf-texture dabs (darker speckle)
     ctx.fillStyle = col.dark;
-    for (var i = 0; i < 3; i++) {
-      ctx.beginPath(); ctx.arc(x + (rnd() - 0.5) * 12 * s, y - 5 * s + (rnd() - 0.5) * 8 * s, 1.4 * s, 0, Math.PI * 2); ctx.fill();
-    }
-    // tiny light highlight on the cap (consistent light)
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.beginPath(); ctx.arc(x - 2 * s, y - 9 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+    for (var i = 0; i < 5; i++) ctx.beginPath(), ctx.arc(x + (rnd() - 0.5) * 16 * s, y - 4 * s + (rnd() - 0.5) * 10 * s, 1.3 * s, 0, Math.PI * 2), ctx.fill();
+    // bright rim highlight on the cap
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.beginPath(); ctx.arc(x - 4 * s, y - 10 * s, 2.4 * s, 0, Math.PI * 2); ctx.fill();
   }
   // small bush (two clumps + shadow) for filler
   function chunkyBush(ctx, x, y, scale, rnd, col) {
@@ -488,8 +488,26 @@
   function detailGlades(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     var t = (timeMs || 0) * 0.001;
+    // MARSH: shallow low-water pools with reeds scattered through the rough,
+    // so the surrounds read as wetland, not just grass.
+    scatterRough(hole, rnd, 9, 16, function (x, y, sc, r) {
+      var pw = 16 + r() * 22, ph = 10 + r() * 14;
+      // shallow water pool
+      ctx.fillStyle = 'rgba(60,110,100,0.55)'; ctx.beginPath(); ctx.ellipse(x, y, pw, ph, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(90,140,120,0.4)'; ctx.beginPath(); ctx.ellipse(x, y - 1, pw * 0.7, ph * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      // muddy rim
+      ctx.strokeStyle = 'rgba(80,90,50,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, pw, ph, 0, 0, Math.PI * 2); ctx.stroke();
+      // reed clumps poking out
+      ctx.strokeStyle = '#7a8a4a'; ctx.lineWidth = 0.9;
+      for (var b = 0; b < 7; b++) {
+        var rx = x - pw * 0.6 + r() * pw * 1.2, ry = y - ph * 0.4 + r() * ph * 0.8;
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + (r() - 0.5) * 3, ry - 5 - r() * 4); ctx.stroke();
+      }
+      // a lily pad or two
+      if (r() < 0.6) { ctx.fillStyle = '#3a6e3a'; ctx.beginPath(); ctx.arc(x + (r()-0.5)*pw, y + (r()-0.5)*ph, 2.5, 0.4, Math.PI * 2); ctx.fill(); }
+    });
     // cypress trees densely filling the rough margins
-    scatterRough(hole, rnd, 22, 9, function (x, y, sc, r) {
+    scatterRough(hole, rnd, 20, 9, function (x, y, sc, r) {
       if (r() < 0.7) cypress(ctx, x, y, 1.3 + sc * 0.6, r);
       else chunkyBush(ctx, x, y, sc, r, TREECOL.pine);
     });
@@ -669,18 +687,38 @@
   function detailSky(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     var t = (timeMs || 0) * 0.001;
-    // drifting clouds below/around the islands
-    for (var i = 0; i < 6; i++) {
-      var cx = ((i * 90 + t * 12) % 460) - 30, cy = 120 + (i * 97) % 520;
-      cloud(ctx, cx, cy, 0.8 + rnd() * 0.6);
+    // BIG prominent clouds drifting under the islands (only over the void/rough,
+    // so it reads as the course floating high above a cloud layer).
+    for (var i = 0; i < 7; i++) {
+      var cx = ((i * 130 + t * 10) % 540) - 60;
+      var cy = 110 + (i * 89) % 560;
+      if (onPlay(hole, cx, cy, 24)) continue;   // clouds pass behind/around islands
+      bigCloud(ctx, cx, cy, 1.4 + (i % 3) * 0.5);
     }
-    // rocky undersides + waterfalls spilling off the green/fairway island edges
-    [hole.fairway, hole.green].forEach(function (poly) {
-      if (!poly || poly.length < 3) return;
-      islandUnderside(ctx, poly, rnd, t);
-    });
-    // distant smaller floating islets
-    for (var k = 0; k < 3; k++) floatingIslet(ctx, 30 + rnd() * 360, 100 + rnd() * 200, 0.5 + rnd() * 0.4, rnd);
+    // the odd bird gliding past
+    for (var b = 0; b < 3; b++) {
+      var bx = -20 + ((b * 150 + t * 36) % 480);
+      var by = 120 + (b * 173) % 480;
+      if (onPlay(hole, bx, by, 10)) continue;
+      bird(ctx, bx, by, t + b);
+    }
+  }
+  function bigCloud(ctx, x, y, s) {
+    ctx.save();
+    // soft shadow underneath
+    ctx.fillStyle = 'rgba(150,180,210,0.35)';
+    [[0,2,13],[12,4,10],[-12,4,10],[5,-3,9],[-7,-2,8]].forEach(function (m) { ctx.beginPath(); ctx.ellipse(x + m[0]*s, y + m[1]*s + 2, m[2]*s, m[2]*s*0.7, 0, 0, Math.PI*2); ctx.fill(); });
+    // white body
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    [[0,0,13],[12,2,10],[-12,2,10],[5,-5,9],[-7,-4,8]].forEach(function (m) { ctx.beginPath(); ctx.ellipse(x + m[0]*s, y + m[1]*s, m[2]*s, m[2]*s*0.72, 0, 0, Math.PI*2); ctx.fill(); });
+    ctx.restore();
+  }
+  function bird(ctx, x, y, t) {
+    var flap = Math.sin(t * 4) * 2.2;
+    ctx.strokeStyle = 'rgba(40,50,60,0.7)'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - 5, y); ctx.quadraticCurveTo(x - 2, y - 2 - flap, x, y);
+    ctx.quadraticCurveTo(x + 2, y - 2 - flap, x + 5, y); ctx.stroke();
   }
   function cloud(ctx, x, y, s) {
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
@@ -755,29 +793,54 @@
     });
   }
   function coralBeach(ctx, hole, side, timeMs) {
-    var W = 420, H = 760, t = (timeMs || 0) * 0.001;
+    var W = 420, H = 760, t = (timeMs || 0) * 0.001, T = 14, top = 0;
     var sand = '#ecd9a9', sandDk = '#d8c08a', sea1 = '#3fb0c0', sea2 = '#2f8fa8';
+    var sandEdge = 'rgba(120,100,55,0.8)', seaEdge = 'rgba(20,70,90,0.8)';
     ctx.save();
+    // bands now run to the very top (top:0) and are wider so they don't revert
+    // to green near the screen edge.
     var band, seaBand;
-    if (side === 1) { band = { x: 0, y: 70, w: 58, h: H - 70 }; seaBand = { x: 0, y: 70, w: 26, h: H - 70 }; }
-    else if (side === 2) { band = { x: W - 58, y: 70, w: 58, h: H - 70 }; seaBand = { x: W - 26, y: 70, w: 26, h: H - 70 }; }
-    else { band = { x: 0, y: 70, w: W, h: 64 }; seaBand = { x: 0, y: 70, w: W, h: 28 }; }
-    // only paint where it's rough (don't cover fairway/green)
-    function paintCells(rect, colA, colB) {
-      for (var x = rect.x; x < rect.x + rect.w; x += 14) {
-        for (var y = rect.y; y < rect.y + rect.h; y += 14) {
-          if (onPlay(hole, x + 7, y + 7, 0)) continue;
-          ctx.fillStyle = ((Math.floor(x / 14) + Math.floor(y / 14)) % 2) ? colA : colB;
-          ctx.fillRect(x, y, 14.5, 14.5);
-        }
-      }
+    if (side === 1) { band = { x: 0, y: top, w: 70, h: H }; seaBand = { x: 0, y: top, w: 32, h: H }; }
+    else if (side === 2) { band = { x: W - 70, y: top, w: 70, h: H }; seaBand = { x: W - 32, y: top, w: 32, h: H }; }
+    else { band = { x: 0, y: top, w: W, h: 76 }; seaBand = { x: 0, y: top, w: W, h: 34 }; }
+
+    // build a classification grid for these bands so we can draw hard borders
+    // wherever beach/sea meets a non-beach cell (grass or play) — same cut-out
+    // look the fairway/bunkers have.
+    function cellKind(cx, cy) {
+      // returns 'sea' | 'sand' | null (null = leave as-is / grass / play)
+      if (cx < seaBand.x || cx >= seaBand.x + seaBand.w || cy < seaBand.y || cy >= seaBand.y + seaBand.h) {
+        // not in sea band; maybe sand band
+      } else if (!onPlay(hole, cx + 7, cy + 7, 0)) return 'sea';
+      if (cx < band.x || cx >= band.x + band.w || cy < band.y || cy >= band.y + band.h) return null;
+      if (onPlay(hole, cx + 7, cy + 7, 0)) return null;
+      return 'sand';
     }
-    paintCells(band, sand, sandDk);
-    paintCells(seaBand, sea1, sea2);
-    // foam line + sparkle on the sea band
+    var cols = Math.ceil(W / T), rows = Math.ceil(H / T), grid = [];
+    for (var r = 0; r < rows; r++) { grid[r] = []; for (var c = 0; c < cols; c++) grid[r][c] = cellKind(c * T, r * T); }
+    // paint bases
+    for (var r2 = 0; r2 < rows; r2++) for (var c2 = 0; c2 < cols; c2++) {
+      var k = grid[r2][c2]; if (!k) continue;
+      var x = c2 * T, y = r2 * T, chk = (c2 + r2) % 2;
+      ctx.fillStyle = k === 'sea' ? (chk ? sea1 : sea2) : (chk ? sand : sandDk);
+      ctx.fillRect(x, y, T + 0.6, T + 0.6);
+    }
+    // hard borders where a cell differs from its neighbour (incl. against grass)
+    for (var r3 = 0; r3 < rows; r3++) for (var c3 = 0; c3 < cols; c3++) {
+      var k0 = grid[r3][c3]; if (!k0) continue;
+      var x3 = c3 * T, y3 = r3 * T;
+      var up = r3 > 0 ? grid[r3-1][c3] : null, lf = c3 > 0 ? grid[r3][c3-1] : null;
+      var dn = r3 < rows-1 ? grid[r3+1][c3] : null, rt = c3 < cols-1 ? grid[r3][c3+1] : null;
+      ctx.fillStyle = k0 === 'sea' ? seaEdge : sandEdge;
+      if (up !== k0) ctx.fillRect(x3, y3, T + 0.6, 1.8);
+      if (lf !== k0) ctx.fillRect(x3, y3, 1.8, T + 0.6);
+      if (dn !== k0) ctx.fillRect(x3, y3 + T - 1.2, T + 0.6, 1.8);
+      if (rt !== k0) ctx.fillRect(x3 + T - 1.2, y3, 1.8, T + 0.6);
+    }
+    // foam sparkle on the sea
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     for (var i = 0; i < 30; i++) {
-      var fx = seaBand.x + (seaBand.w > 100 ? Math.random() * seaBand.w : seaBand.w * 0.8);
+      var fx = seaBand.x + (seaBand.w > 100 ? (i / 30) * seaBand.w : seaBand.w * 0.7);
       var fy = seaBand.y + (i / 30) * seaBand.h;
       if (!onPlay(hole, fx, fy, 0)) ctx.fillRect(fx, fy + Math.sin(t * 2 + i) * 2, 1.6, 1.6);
     }
