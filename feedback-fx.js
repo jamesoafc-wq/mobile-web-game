@@ -37,7 +37,9 @@
   // ---- 1) HIT FLASH ---------------------------------------------------------
   var flash = null;  // { start, zone }
   var FLASH_MS = 1100;
-  var zoneColor = { sweet: '120,235,90', middle: '240,190,70', bad: '235,80,80' };
+  // colours chosen to CONTRAST with the green course: a green glow is invisible
+  // on green, so "sweet" uses bright gold/white. Amber and red already contrast.
+  var zoneColor = { sweet: '255,236,150', middle: '255,176,60', bad: '255,70,70' };
 
   if (typeof resolveSkillShot === 'function') {
     var beforeResolve = resolveSkillShot;
@@ -56,19 +58,20 @@
     var t = (now() - flash.start) / FLASH_MS;
     if (t >= 1) { flash = null; return; }
     var rgb = zoneColor[flash.zone] || zoneColor.middle;
-    // envelope: fast rise (0-15%), hold (15-55%), smooth fade (55-100%)
-    var peak = (flash.zone === 'sweet' ? 0.5 : flash.zone === 'bad' ? 0.42 : 0.32);
+    // envelope: fast rise (0-12%), hold (12-50%), smooth fade (50-100%)
+    var peak = (flash.zone === 'sweet' ? 0.7 : flash.zone === 'bad' ? 0.62 : 0.5);
     var env;
-    if (t < 0.15) env = easeOut(t / 0.15);
-    else if (t < 0.55) env = 1;
-    else env = 1 - easeOut((t - 0.55) / 0.45);
+    if (t < 0.12) env = easeOut(t / 0.12);
+    else if (t < 0.5) env = 1;
+    else env = 1 - easeOut((t - 0.5) / 0.5);
     var a = env * peak;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    // edge vignette glow (strong at edges, clear in the centre so play stays visible)
-    var g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.72);
+    // edge vignette glow — reaches further toward the centre so it's clearly
+    // seen, while still leaving the very middle clear enough to watch the ball.
+    var g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.12, W / 2, H / 2, Math.max(W, H) * 0.7);
     g.addColorStop(0, 'rgba(' + rgb + ',0)');
-    g.addColorStop(0.6, 'rgba(' + rgb + ',' + (a * 0.35).toFixed(3) + ')');
+    g.addColorStop(0.4, 'rgba(' + rgb + ',' + (a * 0.4).toFixed(3) + ')');
     g.addColorStop(1, 'rgba(' + rgb + ',' + a.toFixed(3) + ')');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
@@ -98,10 +101,34 @@
         var text = (typeof getCurrentScorePhrase === 'function')
           ? getCurrentScorePhrase(toPar) : 'Hole out';
         var sub = strokes + (strokes === 1 ? ' shot on a par ' : ' shots on a par ') + hole.par;
-        score = { start: now(), text: text.toUpperCase(), sub: sub, tier: tierFor(toPar) };
+        var awd = (window.Progress && Progress.lastAward) ? Progress.lastAward() : null;
+        var stars = toPar <= -1 ? 3 : (toPar === 0 ? 2 : (toPar <= 1 ? 1 : 0));
+        score = { start: now(), text: text.toUpperCase(), sub: sub, tier: tierFor(toPar), stars: stars,
+                  xp: awd ? awd.xp : 0, coins: awd ? awd.coins : 0, leveledUp: awd ? awd.leveledUp : false, level: awd ? awd.level : 0 };
       } catch (e) {}
     }
     wasHoled = holed;
+  }
+
+  function drawStar(ctx, cx, cy, r, earned) {
+    ctx.save();
+    ctx.shadowColor = earned ? 'rgba(255,210,90,0.9)' : 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = earned ? 12 : 4;
+    ctx.beginPath();
+    for (var i = 0; i < 5; i++) {
+      var a = -Math.PI / 2 + i * (Math.PI * 2 / 5);
+      var ax = cx + Math.cos(a) * r, ay = cy + Math.sin(a) * r;
+      i === 0 ? ctx.moveTo(ax, ay) : ctx.lineTo(ax, ay);
+      var a2 = a + Math.PI / 5;
+      ctx.lineTo(cx + Math.cos(a2) * r * 0.45, cy + Math.sin(a2) * r * 0.45);
+    }
+    ctx.closePath();
+    ctx.fillStyle = earned ? '#ffe27a' : 'rgba(20,30,18,0.55)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.4, r * 0.14);
+    ctx.strokeStyle = earned ? 'rgba(180,120,20,0.9)' : 'rgba(0,0,0,0.5)';
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawScoreName(ctx, W, H) {
@@ -150,6 +177,20 @@
     ctx.fillStyle = fill;
     ctx.fillText(score.text, 0, 0);
 
+    // ---- earned stars: three slots above the name, fill gold for earned ----
+    if (typeof score.stars === 'number') {
+      var slots = 3, gap = baseSize * 0.46, sr = baseSize * 0.17;
+      var sy = -baseSize * 0.72;
+      for (var i = 0; i < slots; i++) {
+        var sx = (i - 1) * gap;
+        // delayed pop per star (earned ones animate in left-to-right)
+        var earned = i < score.stars;
+        var sp = clamp01((t - 0.12 - i * 0.08) / 0.22);
+        var ss = earned ? easeOut(sp) * (1 + 0.3 * (1 - easeOut(sp))) : 1;
+        drawStar(ctx, sx, sy, sr * (earned ? ss : 0.8), earned);
+      }
+    }
+
     // subtitle line under the name on every score (e.g. "2 shots on a par 4"),
     // same styling family — slightly transparent white, sized off the title.
     if (score.sub) {
@@ -160,6 +201,31 @@
       ctx.strokeText(score.sub, 0, baseSize * 0.62);
       ctx.fillStyle = 'rgba(244,255,240,0.92)';
       ctx.fillText(score.sub, 0, baseSize * 0.62);
+    }
+
+    // subtle "+X XP" (and coins) reward line, fades in just after the name so it
+    // reads as a reward beat. Gold, smaller, under the subtitle.
+    var xp = score.xp, coins = score.coins, leveledUp = score.leveledUp, lvl = score.level;
+    if (!xp && window.Progress && Progress.lastAward) {
+      var la = Progress.lastAward();
+      if (la) { xp = la.xp; coins = la.coins; leveledUp = la.leveledUp; lvl = la.level; }
+    }
+    if (xp) {
+      var rewT = clamp01((t - 0.22) / 0.2);   // slight delay
+      if (rewT > 0) {
+        ctx.globalAlpha = alpha * rewT;
+        ctx.shadowBlur = 8; ctx.shadowColor = 'rgba(60,40,0,0.5)';
+        ctx.font = '900 ' + (baseSize * 0.26).toFixed(0) + 'px system-ui';
+        var rewardStr = '+' + xp + ' XP';
+        if (coins) rewardStr += '   +' + coins + ' ◉';
+        ctx.fillStyle = '#ffe27a';
+        ctx.fillText(rewardStr, 0, baseSize * 0.94);
+        if (leveledUp) {
+          ctx.font = '900 ' + (baseSize * 0.22).toFixed(0) + 'px system-ui';
+          ctx.fillStyle = '#9be870';
+          ctx.fillText('LEVEL ' + lvl + '!', 0, baseSize * 1.2);
+        }
+      }
     }
     ctx.restore();
   }

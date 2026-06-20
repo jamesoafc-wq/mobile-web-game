@@ -128,9 +128,13 @@
       col.appendChild(track);
 
       var coinRow = document.createElement('div');
+      var totalStars = (window.Progress && Progress.totalStars) ? Progress.totalStars() : 0;
       coinRow.innerHTML = '<span style="font:900 12px system-ui;color:#ffe27a;">◉ ' +
                           Progress.coins() + '</span>' +
-                          '<span style="font:750 10px system-ui;color:rgba(232,246,222,.6);"> coins</span>';
+                          '<span style="font:750 10px system-ui;color:rgba(232,246,222,.6);"> coins</span>' +
+                          '<span style="font:900 12px system-ui;color:#ffe27a;margin-left:12px;">★ ' +
+                          totalStars + '</span>' +
+                          '<span style="font:750 10px system-ui;color:rgba(232,246,222,.6);"> stars</span>';
       col.appendChild(coinRow);
 
       hdr.appendChild(col);
@@ -161,6 +165,11 @@
       card.style.boxShadow = playable ? '0 14px 34px rgba(0,0,0,.24)' : 'none';
       card.style.minHeight = '150px';
       card.style.display = 'block';
+      card.style.transition = 'transform .18s ease, box-shadow .18s ease, border-color .18s ease';
+      if (playable) {
+        card.addEventListener('mouseenter', function () { this.style.transform = 'translateY(-3px)'; this.style.boxShadow = '0 18px 40px rgba(0,0,0,.34)'; this.style.borderColor = 'rgba(255,226,122,.5)'; });
+        card.addEventListener('mouseleave', function () { this.style.transform = 'none'; this.style.boxShadow = '0 14px 34px rgba(0,0,0,.24)'; this.style.borderColor = 'rgba(238,248,216,.16)'; });
+      }
 
       // palette-gradient fallback always set first (shows if image missing)
       var fallback = 'linear-gradient(120deg, ' + course.palette[0] + ', ' +
@@ -220,6 +229,25 @@
         badge.style.padding = '5px 9px';
         badge.style.borderRadius = '999px';
         card.appendChild(badge);
+      }
+
+      // star-collection badge (top-left) for playable courses: collected / 54
+      if (playable && window.Progress && Progress.courseStars) {
+        var earned = Progress.courseStars(course.id);
+        var maxS = Progress.courseStarsMax ? Progress.courseStarsMax() : 54;
+        var sbadge = document.createElement('div');
+        sbadge.style.position = 'absolute';
+        sbadge.style.top = '10px';
+        sbadge.style.left = '10px';
+        sbadge.style.font = '900 11px system-ui';
+        sbadge.style.color = earned >= maxS ? '#0c2a14' : '#ffe27a';
+        sbadge.style.background = earned >= maxS ? 'linear-gradient(135deg,#ffe27a,#ffb347)' : 'rgba(0,0,0,.5)';
+        sbadge.style.padding = '5px 10px';
+        sbadge.style.borderRadius = '999px';
+        sbadge.style.boxShadow = '0 2px 8px rgba(0,0,0,.3)';
+        sbadge.innerHTML = '★ ' + earned + '<span style="opacity:.6;font-weight:800;"> / ' + maxS + '</span>' +
+          (earned >= maxS ? ' <span style="font-weight:900;">PERFECT</span>' : '');
+        card.appendChild(sbadge);
       }
 
       // text content (bottom, over the scrim)

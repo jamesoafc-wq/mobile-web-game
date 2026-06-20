@@ -138,7 +138,7 @@
       fairway: '#b5613f', fairway2: '#c47049', stripe: 'rgba(255,220,190,0.05)',
       fringe: '#bd6a46', green: '#cf8a5c', greenSheen: 'rgba(255,225,200,0.12)',
       sand: '#c98a5a', sandEdge: 'rgba(90,40,25,0.65)',
-      water: ['#7a8aa0', '#5a6a80'], waterSheen: 'rgba(220,235,255,0.16)',
+      water: ['#2a1410', '#160a08'], waterSheen: 'rgba(60,30,20,0.2)', sandEdge: 'rgba(20,8,5,0.8)',
       rock: '#8a3a24', rockDark: '#6a2a18', ice: 'rgba(220,235,245,0.7)', sky: ['#d8a07a', '#c07850'], dust: 'rgba(200,120,80,0.12)'
     },
     sky: {
@@ -487,24 +487,9 @@
     ctx.save(); ctx.translate(1.5, 2.5); ctx.globalAlpha = 0.16;
     fillPoly(ctx, hole.green, '#0a2010', null, 0);
     ctx.restore();
-    // FLAT green base + crisp dark outline (no gradient base)
+    // FLAT green base + crisp dark outline. No radial dome here — it read as a
+    // circle on the green; slope is now shown by per-tile shading in tile-render.
     fillPoly(ctx, hole.green, p.green, 'rgba(30,80,38,0.5)', 2);
-    // DOME / HILL shading preserved: soft lit crown + soft far-side shadow,
-    // clipped inside the green so the slope still reads as a raised mound.
-    clipPoly(ctx, hole.green, function () {
-      // lit crown toward the light (upper-left)
-      var hi = rad(ctx, cx - 7, cy - 7, 2, maxR, [[0, p.greenLite || '#7fe08f'], [0.55, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0)']]);
-      ctx.globalAlpha = 0.5; ctx.fillStyle = hi;
-      ctx.beginPath(); ctx.ellipse(cx, cy, maxR, maxR * 0.85, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 1;
-      // far-side shadow (lower-right) for the fall-away
-      var sh = rad(ctx, cx + 9, cy + 9, 2, maxR, [[0, 'rgba(20,60,28,0)'], [0.5, 'rgba(20,60,28,0)'], [1, 'rgba(20,60,28,0.5)']]);
-      ctx.fillStyle = sh;
-      ctx.beginPath(); ctx.ellipse(cx, cy, maxR, maxR * 0.85, 0, 0, Math.PI * 2); ctx.fill();
-      // faint sheen fleck
-      ctx.fillStyle = p.greenSheen;
-      ctx.beginPath(); ctx.ellipse(cx - 5, cy - 5, (b.maxX - b.minX) * 0.26, (b.maxY - b.minY) * 0.2, -0.3, 0, Math.PI * 2); ctx.fill();
-    });
   }
 
   // ============================ SURROUNDINGS ===============================
@@ -512,19 +497,10 @@
   // because they sit at the hole's edges by construction of the décor seeds).
   function drawSurroundings(ctx, hole, W, H, p, theme, timeMs) {
     var r = rng(holeSeed(hole));
-    if (theme === 'willow') {
-      // weeping willow fronds hanging from the top corners
-      drawWillowTree(ctx, 40, 90, 1.1, timeMs);
-      drawWillowTree(ctx, W - 44, 120, 0.95, timeMs);
-    } else if (theme === 'pine') {
-      // tall layered pines along the left & right margins with long shadows
-      for (var i = 0; i < 5; i++) {
-        var py = 80 + i * (H - 140) / 4;
-        drawTallPine(ctx, 26 + (i % 2) * 8, py, 1 + r() * 0.25);
-        drawTallPine(ctx, W - 30 - (i % 2) * 8, py + 30, 1 + r() * 0.25);
-      }
-    } else if (theme === 'dunes') {
-      // marram grass tufts scattered in the rough
+    // NOTE: per-theme trees are now drawn by course-detail.js in the new chunky
+    // style. The old hardcoded willow/pine trees here clashed with them, so only
+    // non-tree atmosphere remains.
+    if (theme === 'dunes') {
       for (var t = 0; t < 26; t++) {
         var gx = r() * W, gy = r() * H;
         drawMarram(ctx, gx, gy, 0.7 + r() * 0.6, timeMs);
@@ -538,7 +514,6 @@
         ctx.beginPath(); ctx.arc(ox, oy, 1.8, 0, Math.PI * 2); ctx.fill();
       }
     }
-    // coral surroundings handled by its existing palm themeExtras (kept)
   }
 
   function drawWillowTree(ctx, x, y, s, timeMs) {

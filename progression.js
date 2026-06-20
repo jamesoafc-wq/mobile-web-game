@@ -39,7 +39,8 @@
     ownedBalls: ['classic'],
     equippedTracer: 'classic',
     ownedTracers: ['classic'],
-    bestScores: {}     // courseId -> best strokes-to-par
+    bestScores: {},    // courseId -> best strokes-to-par
+    holeStars: {}      // courseId -> { holeIndex -> stars (0..3) }
   };
   var state = Object.assign({}, DEFAULT, load() || {});
   // make sure arrays/objects exist after a partial load
@@ -47,6 +48,7 @@
   if (!Array.isArray(state.ownedTracers)) state.ownedTracers = ['classic'];
   if (!state.equippedTracer) state.equippedTracer = 'classic';
   if (!state.bestScores) state.bestScores = {};
+  if (!state.holeStars) state.holeStars = {};
   if (state.ownedBalls.indexOf('classic') < 0) state.ownedBalls.unshift('classic');
   if (state.ownedTracers.indexOf('classic') < 0) state.ownedTracers.unshift('classic');
 
@@ -143,6 +145,12 @@
             if (cid != null) {
               var prev = state.bestScores[cid];
               if (prev == null || toPar < prev) state.bestScores[cid] = toPar;
+              // STAR RATING per hole: 3 birdie+, 2 par, 1 bogey, 0 worse. Keep best.
+              var stars = toPar <= -1 ? 3 : (toPar === 0 ? 2 : (toPar <= 1 ? 1 : 0));
+              if (!state.holeStars) state.holeStars = {};
+              if (!state.holeStars[cid]) state.holeStars[cid] = {};
+              var prevStars = state.holeStars[cid][idx] || 0;
+              if (stars > prevStars) state.holeStars[cid][idx] = stars;
               save();
             }
             sweetThisHole = 0;
@@ -234,6 +242,19 @@
     ownsTracer: function (id) { return state.ownedTracers.indexOf(id) >= 0; },
     equippedTracer: function () { return state.equippedTracer; },
     bestScore: function (cid) { return state.bestScores[cid]; },
+    // STARS: per-hole and per-course totals for the menu's collection chase
+    holeStars: function (cid) { return (state.holeStars && state.holeStars[cid]) || {}; },
+    courseStars: function (cid) {
+      var hs = (state.holeStars && state.holeStars[cid]) || {}, sum = 0;
+      for (var k in hs) if (hs.hasOwnProperty(k)) sum += hs[k];
+      return sum;
+    },
+    courseStarsMax: function () { return 18 * 3; },
+    totalStars: function () {
+      var sum = 0, all = state.holeStars || {};
+      for (var c in all) if (all.hasOwnProperty(c)) { var h = all[c]; for (var k in h) if (h.hasOwnProperty(k)) sum += h[k]; }
+      return sum;
+    },
     lastAward: function () { return state.lastAward || null; },
 
     // course unlock check by level
