@@ -21,29 +21,42 @@
 
   // ---- sprite image loader (real prop PNGs). Async; until ready, nothing draws
   // for that sprite, so it's always safe. ----
+  var SPRITE_VER = 'v2';   // bump when sprite PNGs change to bust the cache
   var spriteCache = {};
   function sprite(url) {
     if (spriteCache[url]) return spriteCache[url];
     var rec = { img: new Image(), ready: false };
     rec.img.onload = function () { rec.ready = true; };
     rec.img.onerror = function () { rec.ready = false; };
-    rec.img.src = url;
+    rec.img.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + SPRITE_VER;
     spriteCache[url] = rec;
     return rec;
   }
   // draw a sprite centred at (x,y) with a given world width, keeping aspect +
   // a soft contact shadow. wWorld = desired on-course width in px.
-  function drawSprite(ctx, url, x, y, wWorld) {
+  function drawSprite(ctx, url, x, y, wWorld, sway) {
     var rec = sprite(url);
     if (!rec.ready) return false;
     var iw = rec.img.width || 1, ih = rec.img.height || 1;
     var s = wWorld / iw, dw = wWorld, dh = ih * s;
-    // contact shadow
+    // contact shadow (stays put on the ground)
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.beginPath(); ctx.ellipse(x, y + dh * 0.34, dw * 0.4, dh * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-    // sprite (anchored so its base sits near y)
-    ctx.drawImage(rec.img, x - dw / 2, y - dh * 0.62, dw, dh);
+    // optional wind sway: lean the top of the sprite, pivoting at its base
+    if (sway) {
+      ctx.save();
+      ctx.translate(x, y + dh * 0.38);
+      ctx.transform(1, 0, sway, 1, 0, 0);   // shear top sideways
+      ctx.drawImage(rec.img, -dw / 2, -dh, dw, dh);
+      ctx.restore();
+    } else {
+      ctx.drawImage(rec.img, x - dw / 2, y - dh * 0.62, dw, dh);
+    }
     return true;
+  }
+  // a gentle per-prop wind sway value from time + position
+  function windSway(x, y, timeMs) {
+    return Math.sin((timeMs || 0) * 0.0011 + (x + y) * 0.05) * 0.05;
   }
 
 
@@ -734,21 +747,36 @@
   function detailSky(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     var t = (timeMs || 0) * 0.001;
-    // BIG prominent clouds drifting under the islands (only over the void/rough,
-    // so it reads as the course floating high above a cloud layer).
+    // BIG clouds drifting continuously BELOW the islands. We clip them OUT of the
+    // play surfaces (fairway/green/tee), so a cloud slides smoothly under the
+    // island and reappears the other side — no pop in/out.
+    ctx.save();
+    if (typeof clipOutPlay === 'function') clipOutPlay(ctx, hole);
     for (var i = 0; i < 7; i++) {
-      var cx = ((i * 130 + t * 10) % 540) - 60;
+      var cx = ((i * 150 + t * 14) % 560) - 70;
       var cy = 110 + (i * 89) % 560;
-      if (onPlay(hole, cx, cy, 24)) continue;   // clouds pass behind/around islands
       bigCloud(ctx, cx, cy, 1.4 + (i % 3) * 0.5);
     }
-    // the odd bird gliding past
+    ctx.restore();
+    // the odd bird gliding past, above everything
     for (var b = 0; b < 3; b++) {
       var bx = -20 + ((b * 150 + t * 36) % 480);
       var by = 120 + (b * 173) % 480;
-      if (onPlay(hole, bx, by, 10)) continue;
       bird(ctx, bx, by, t + b);
     }
+  }
+  // clip so subsequent draws only show OUTSIDE the play surfaces (the void)
+  function clipOutPlay(ctx, hole) {
+    ctx.beginPath();
+    ctx.rect(0, 0, 420, 760);
+    [hole.fairway, hole.greenRing, hole.green, hole.tee].forEach(function (poly) {
+      if (poly && poly.length > 2) {
+        ctx.moveTo(poly[0].x, poly[0].y);
+        for (var i = 1; i < poly.length; i++) ctx.lineTo(poly[i].x, poly[i].y);
+        ctx.closePath();
+      }
+    });
+    ctx.clip('evenodd');
   }
   function bigCloud(ctx, x, y, s) {
     ctx.save();
@@ -813,7 +841,7 @@
   function detailPine(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     scatterRough(hole, rnd, 30, 9, function (x, y, sc, r) {
-      if (!drawSprite(ctx, 'sprites/pine.png', x, y, 26 + sc * 14)) pineTree(ctx, x, y, 1.1 + sc * 0.7, r);
+      if (!drawSprite(ctx, 'sprites/pine.png', x, y, 26 + sc * 14, windSway(x, y, timeMs) * 0.5)) pineTree(ctx, x, y, 1.1 + sc * 0.7, r);
     });
   }
   function pineTree(ctx, x, y, scale, rnd) {
@@ -833,9 +861,9 @@
     // Side rotates by hole so it's not always the same corner.
     var beachSide = holeSeed(hole) % 4;  // 0 none, 1 left, 2 right, 3 top-corner
     if (beachSide !== 0) coralBeach(ctx, hole, beachSide, timeMs);
-    // palms + bushes in the rough
+    // palms + bushes in the rough (palms sway in the sea breeze)
     scatterRough(hole, rnd, 18, 10, function (x, y, sc, r) {
-      if (r() < 0.65) { if (!drawSprite(ctx, 'sprites/palm.png', x, y, 26 + sc * 14)) palmTree(ctx, x, y, 1.0 + sc * 0.6, r); }
+      if (r() < 0.65) { if (!drawSprite(ctx, 'sprites/palm.png', x, y, 26 + sc * 14, windSway(x, y, timeMs))) palmTree(ctx, x, y, 1.0 + sc * 0.6, r); }
       else chunkyBush(ctx, x, y, sc, r, TREECOL.palm);
     });
   }
@@ -909,12 +937,12 @@
     ctx.fillStyle = '#5a3a22'; ctx.beginPath(); ctx.arc(fx - 1.5 * s, fy + 1 * s, 1.2 * s, 0, Math.PI * 2); ctx.fill();
   }
   function detailDunes(ctx, hole, timeMs) {
-    // arid links — cacti + sparse marram grass tufts
+    // arid links — a FEW cacti (like the old course had) + dense marram grass
     var rnd = seeded(holeSeed(hole));
-    scatterRough(hole, rnd, 10, 12, function (x, y, sc, r) {
+    scatterRough(hole, rnd, 4, 12, function (x, y, sc, r) {
       drawSprite(ctx, 'sprites/cactus.png', x, y, 22 + sc * 12);
     });
-    scatterRough(hole, rnd, 34, 4, function (x, y, sc, r) {
+    scatterRough(hole, rnd, 40, 4, function (x, y, sc, r) {
       ctx.strokeStyle = '#b8b06a'; ctx.lineWidth = 0.8;
       for (var i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + i - 2, y); ctx.lineTo(x + i - 2 + (r() - 0.5) * 4, y - 5 - r() * 4); ctx.stroke(); }
     });
