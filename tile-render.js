@@ -29,21 +29,30 @@
       water: 'tex/masters-water.png'
     },
     coral: {
-      rough: 'tex/coral-rough.png', fairway: 'tex/coral-fairway.png',
-      fringe: 'tex/coral-fringe.png', green: 'tex/coral-green.png',
+      rough: 'tex/coral-fringe.png', fairway: 'tex/coral-fairway.png',
+      fringe: 'tex/coral-rough.png', green: 'tex/coral-green.png',
       tee: 'tex/coral-tee.png', sand: 'tex/coral-sand.png',
       water: 'tex/coral-water.png'
     },
-    // Willow + Floating Isles reuse the masters grass/sand set (per request).
+    // Willow + Floating Isles + Pine Ridge reuse the masters grass/sand set,
+    // and the masters water texture (per request).
     willow: {
       rough: 'tex/masters-rough.png', fairway: 'tex/masters-fairway.png',
       fringe: 'tex/masters-fringe.png', green: 'tex/masters-green.png',
-      tee: 'tex/masters-tee.png', sand: 'tex/masters-sand.png'
+      tee: 'tex/masters-tee.png', sand: 'tex/masters-sand.png',
+      water: 'tex/masters-water.png'
     },
     sky: {
       rough: 'tex/masters-rough.png', fairway: 'tex/masters-fairway.png',
       fringe: 'tex/masters-fringe.png', green: 'tex/masters-green.png',
-      tee: 'tex/masters-tee.png', sand: 'tex/masters-sand.png'
+      tee: 'tex/masters-tee.png', sand: 'tex/masters-sand.png',
+      water: 'tex/masters-water.png'
+    },
+    pine: {
+      rough: 'tex/masters-rough.png', fairway: 'tex/masters-fairway.png',
+      fringe: 'tex/masters-fringe.png', green: 'tex/masters-green.png',
+      tee: 'tex/masters-tee.png', sand: 'tex/masters-sand.png',
+      water: 'tex/masters-water.png'
     }
   };
   var texCache = {};       // url -> {img, ready}

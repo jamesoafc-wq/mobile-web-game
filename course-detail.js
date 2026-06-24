@@ -58,6 +58,22 @@
   function windSway(x, y, timeMs) {
     return Math.sin((timeMs || 0) * 0.0011 + (x + y) * 0.05) * 0.05;
   }
+  // place a parked golf-cart sprite near the tee on some holes, clear of play
+  function placeCart(ctx, hole) {
+    if (!hole.start || (holeSeed(hole) % 2) !== 0) return;
+    var candidates = [
+      { x: hole.start.x - 42, y: hole.start.y - 6 },
+      { x: hole.start.x + 42, y: hole.start.y - 6 },
+      { x: hole.start.x - 38, y: hole.start.y + 24 }
+    ];
+    for (var ci = 0; ci < candidates.length; ci++) {
+      var cpos = candidates[ci];
+      if (cpos.x > 20 && cpos.x < 400 && !onPlay(hole, cpos.x, cpos.y, 18)) {
+        drawSprite(ctx, 'sprites/cart.png', cpos.x, cpos.y, 34);
+        return;
+      }
+    }
+  }
 
 
   function inPoly(x, y, poly) {
@@ -245,20 +261,7 @@
     var MAS_TREE = { trunk: '#5a3f28', shadow: 'rgba(12,38,18,0.34)', dark: '#155a30', mid: '#1f7a40', light: '#39a35e' };
 
     // a parked golf cart near the tee on some holes, tucked clear of play
-    if (hole.start && (holeSeed(hole) % 2) === 0) {
-      var candidates = [
-        { x: hole.start.x - 42, y: hole.start.y - 6 },
-        { x: hole.start.x + 42, y: hole.start.y - 6 },
-        { x: hole.start.x - 38, y: hole.start.y + 24 }
-      ];
-      for (var ci = 0; ci < candidates.length; ci++) {
-        var cpos = candidates[ci];
-        if (cpos.x > 20 && cpos.x < 400 && !onPlay(hole, cpos.x, cpos.y, 18)) {
-          drawSprite(ctx, 'sprites/cart.png', cpos.x, cpos.y, 34);
-          break;
-        }
-      }
-    }
+    placeCart(ctx, hole);
 
     // 1) DENSE clean tree wall framing the hole — magnolia sprites + dark pines
     scatterRough(hole, rnd, 26, 11, function (x, y, sc, r) {
@@ -857,6 +860,8 @@
   }
   function detailCoral(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
+    // a parked cart near the tee on some holes (replaces the old code cart)
+    placeCart(ctx, hole);
     // BEACH + lagoon along one edge of some holes (drawn first, behind props).
     // Side rotates by hole so it's not always the same corner.
     var beachSide = holeSeed(hole) % 4;  // 0 none, 1 left, 2 right, 3 top-corner
@@ -893,12 +898,21 @@
     }
     var cols = Math.ceil(W / T), rows = Math.ceil(H / T), grid = [];
     for (var r = 0; r < rows; r++) { grid[r] = []; for (var c = 0; c < cols; c++) grid[r][c] = cellKind(c * T, r * T); }
-    // paint bases
+    // paint bases — use the coral sand / water textures if loaded, else flat
+    var sandTex = sprite('tex/coral-sand.png'), seaTex = sprite('tex/coral-water.png');
     for (var r2 = 0; r2 < rows; r2++) for (var c2 = 0; c2 < cols; c2++) {
       var k = grid[r2][c2]; if (!k) continue;
       var x = c2 * T, y = r2 * T, chk = (c2 + r2) % 2;
-      ctx.fillStyle = k === 'sea' ? (chk ? sea1 : sea2) : (chk ? sand : sandDk);
-      ctx.fillRect(x, y, T + 0.6, T + 0.6);
+      var tex = (k === 'sea') ? seaTex : sandTex;
+      if (tex && tex.ready) {
+        var ts = tex.img.width || 96, sxp = ((x % ts) + ts) % ts, syp = ((y % ts) + ts) % ts;
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, T + 0.6, T + 0.6); ctx.clip();
+        for (var gx = x - sxp; gx <= x + T; gx += ts) for (var gy = y - syp; gy <= y + T; gy += ts) ctx.drawImage(tex.img, gx, gy, ts, ts);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = k === 'sea' ? (chk ? sea1 : sea2) : (chk ? sand : sandDk);
+        ctx.fillRect(x, y, T + 0.6, T + 0.6);
+      }
     }
     // hard borders where a cell differs from its neighbour (incl. against grass)
     for (var r3 = 0; r3 < rows; r3++) for (var c3 = 0; c3 < cols; c3++) {
@@ -959,7 +973,17 @@
   // ---- wrap the theme-extras dispatcher ----
   var beforeExtras = drawThemeExtrasV046;
   drawThemeExtrasV046 = function drawThemeExtrasDetailed(ctx, hole) {
-    beforeExtras(ctx, hole);
+    // The original drawThemeExtrasV046 renders legacy CODE-DRAWN props from
+    // hole.themeExtras (palm/cactus/pine/cart). Those are now replaced by image
+    // sprites in this file, so filter them out before calling the original —
+    // keeping only the props we haven't re-done yet (rocks/reeds/wall).
+    var savedExtras = hole.themeExtras;
+    if (savedExtras && savedExtras.length) {
+      var REPLACED = { palm: 1, cactus: 1, pine: 1, cart: 1 };
+      hole.themeExtras = savedExtras.filter(function (e) { return !REPLACED[e.type]; });
+    }
+    try { beforeExtras(ctx, hole); } catch (e) {}
+    hole.themeExtras = savedExtras;   // restore
     try {
       var t = (performance && performance.now) ? performance.now() : 0;
       var th = hole && hole.courseTheme;
