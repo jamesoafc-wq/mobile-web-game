@@ -19,6 +19,27 @@
   var TILE = 14;          // cell size in world px (chunky like the reference)
   var W = 420, H = 760;
 
+  // ---- image textures (per theme). Loaded async; until ready we fall back to
+  // the flat-colour tiles, so nothing breaks if an image is missing. ----
+  var TEX_SETS = {
+    masters: {
+      rough: 'tex/masters-rough.png', fairway: 'tex/masters-fairway.png',
+      fringe: 'tex/masters-fringe.png', green: 'tex/masters-green.png',
+      tee: 'tex/masters-tee.png', sand: 'tex/masters-sand.png'
+    }
+  };
+  var texCache = {};       // url -> {img, ready}
+  function getTex(url) {
+    if (texCache[url]) return texCache[url];
+    var rec = { img: new Image(), ready: false };
+    rec.img.onload = function () { rec.ready = true; };
+    rec.img.onerror = function () { rec.ready = false; };
+    rec.img.src = url;
+    texCache[url] = rec;
+    return rec;
+  }
+  function preloadTheme(theme) { var set = TEX_SETS[theme]; if (!set) return; for (var k in set) if (set.hasOwnProperty(k)) getTex(set[k]); }
+
   // per-theme tile palettes: each surface gets [base, light, dark, edgeDark]
   function skin(theme, p) {
     // derive from the existing theme palette `p` so every course keeps its hues
@@ -72,6 +93,8 @@
   }
 
   function paintTiles(hole, sk) {
+    var texSet = TEX_SETS[hole.courseTheme] || null;
+    if (texSet) preloadTheme(hole.courseTheme);
     var cols = Math.ceil(W / TILE), rows = Math.ceil(H / TILE);
     // 1) classify every cell once
     var grid = [];
@@ -97,9 +120,30 @@
         var pal = sk[surf] || sk.rough;
         var x = c2 * TILE, y = r2 * TILE;
         var rv = cellRand(c2, r2);
-        // base: alternate base/light for a subtle checker like tile art
-        ctx.fillStyle = (rv < 0.18) ? pal[1] : (rv > 0.86 ? pal[2] : pal[0]);
-        ctx.fillRect(x, y, TILE + 0.6, TILE + 0.6);
+        // IMAGE TEXTURE: if this theme has a ready texture for this surface, stamp
+        // a seamless crop of it for this cell; else fall back to flat tile colour.
+        var texUrl = texSet && texSet[surf];
+        var rec = texUrl ? texCache[texUrl] : null;
+        if (rec && rec.ready) {
+          var ts = rec.img.width || 96;
+          // source offset tiles the texture continuously across the whole course
+          var sx = ((x % ts) + ts) % ts, sy = ((y % ts) + ts) % ts;
+          // draw with wrap: may need up to 4 sub-draws if the cell crosses the
+          // texture edge — clip to the cell and draw the texture aligned.
+          ctx.save();
+          ctx.beginPath(); ctx.rect(x, y, TILE + 0.6, TILE + 0.6); ctx.clip();
+          var ox = x - sx, oy = y - sy;
+          for (var gx = ox - ts; gx <= x + TILE; gx += ts) {
+            for (var gy = oy - ts; gy <= y + TILE; gy += ts) {
+              ctx.drawImage(rec.img, gx, gy, ts, ts);
+            }
+          }
+          ctx.restore();
+        } else {
+          // base: alternate base/light for a subtle checker like tile art
+          ctx.fillStyle = (rv < 0.18) ? pal[1] : (rv > 0.86 ? pal[2] : pal[0]);
+          ctx.fillRect(x, y, TILE + 0.6, TILE + 0.6);
+        }
         // MOWING STRIPES on mown surfaces: gentle alternating vertical bands
         // (every 2 columns) layered over the per-cell variation, so it reads as
         // a striped lawn but still has grid-by-grid texture.
@@ -108,18 +152,19 @@
           ctx.fillStyle = band ? 'rgba(255,255,255,0.085)' : 'rgba(0,0,0,0.07)';
           ctx.fillRect(x, y, TILE + 0.6, TILE + 0.6);
         }
-        // per-surface texture
-        if (surf === 'rough' || surf === 'fairway' || surf === 'green' || surf === 'fringe' || surf === 'tee') {
+        // per-surface PROCEDURAL texture (only when NOT using an image texture)
+        var usingTex = !!(rec && rec.ready);
+        if (!usingTex && (surf === 'rough' || surf === 'fairway' || surf === 'green' || surf === 'fringe' || surf === 'tee')) {
           // little V grass tuft
           if (rv > 0.5) {
             ctx.strokeStyle = shade(pal[2], 0.92); ctx.lineWidth = 1;
             var tx = x + TILE * (0.3 + rv * 0.4), ty = y + TILE * 0.6;
             ctx.beginPath(); ctx.moveTo(tx - 2, ty - 2); ctx.lineTo(tx, ty); ctx.lineTo(tx + 2, ty - 2); ctx.stroke();
           }
-        } else if (surf === 'water') {
+        } else if (!usingTex && surf === 'water') {
           // sparkle dots
           if (rv > 0.7) { ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fillRect(x + TILE * 0.5, y + TILE * 0.4, 1.4, 1.4); }
-        } else if (surf === 'sand') {
+        } else if (!usingTex && surf === 'sand') {
           if (rv > 0.6) { ctx.fillStyle = shade(pal[2], 0.95); ctx.fillRect(x + TILE * rv, y + TILE * (1 - rv), 1.2, 1.2); }
         }
       }
