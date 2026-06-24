@@ -19,6 +19,34 @@
   function seeded(seed) { var s = seed % 2147483647; if (s <= 0) s += 2147483646; return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
   function holeSeed(hole) { return Math.floor((hole.cup.x * 73 + hole.cup.y * 131 + (hole.par || 4) * 17)) || 1; }
 
+  // ---- sprite image loader (real prop PNGs). Async; until ready, nothing draws
+  // for that sprite, so it's always safe. ----
+  var spriteCache = {};
+  function sprite(url) {
+    if (spriteCache[url]) return spriteCache[url];
+    var rec = { img: new Image(), ready: false };
+    rec.img.onload = function () { rec.ready = true; };
+    rec.img.onerror = function () { rec.ready = false; };
+    rec.img.src = url;
+    spriteCache[url] = rec;
+    return rec;
+  }
+  // draw a sprite centred at (x,y) with a given world width, keeping aspect +
+  // a soft contact shadow. wWorld = desired on-course width in px.
+  function drawSprite(ctx, url, x, y, wWorld) {
+    var rec = sprite(url);
+    if (!rec.ready) return false;
+    var iw = rec.img.width || 1, ih = rec.img.height || 1;
+    var s = wWorld / iw, dw = wWorld, dh = ih * s;
+    // contact shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(x, y + dh * 0.34, dw * 0.4, dh * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+    // sprite (anchored so its base sits near y)
+    ctx.drawImage(rec.img, x - dw / 2, y - dh * 0.62, dw, dh);
+    return true;
+  }
+
+
   function inPoly(x, y, poly) {
     if (!poly || poly.length < 3) return false;
     var inside = false;
@@ -203,9 +231,26 @@
     // immaculate, lush dark-green tree colour set (Augusta-style pines/hardwoods)
     var MAS_TREE = { trunk: '#5a3f28', shadow: 'rgba(12,38,18,0.34)', dark: '#155a30', mid: '#1f7a40', light: '#39a35e' };
 
-    // 1) DENSE clean tree wall framing the hole (no blossom clutter)
-    scatterRough(hole, rnd, 30, 9, function (x, y, sc, r) {
-      if (r() < 0.78) chunkyTree(ctx, x, y, 1.15 + sc * 0.6, r, MAS_TREE);
+    // a parked golf cart near the tee on some holes, tucked clear of play
+    if (hole.start && (holeSeed(hole) % 2) === 0) {
+      var candidates = [
+        { x: hole.start.x - 42, y: hole.start.y - 6 },
+        { x: hole.start.x + 42, y: hole.start.y - 6 },
+        { x: hole.start.x - 38, y: hole.start.y + 24 }
+      ];
+      for (var ci = 0; ci < candidates.length; ci++) {
+        var cpos = candidates[ci];
+        if (cpos.x > 20 && cpos.x < 400 && !onPlay(hole, cpos.x, cpos.y, 18)) {
+          drawSprite(ctx, 'sprites/cart.png', cpos.x, cpos.y, 34);
+          break;
+        }
+      }
+    }
+
+    // 1) DENSE clean tree wall framing the hole — magnolia sprites + dark pines
+    scatterRough(hole, rnd, 26, 11, function (x, y, sc, r) {
+      if (r() < 0.5) { if (!drawSprite(ctx, 'sprites/magnolia.png', x, y, 28 + sc * 14)) chunkyTree(ctx, x, y, 1.15 + sc * 0.6, r, MAS_TREE); }
+      else if (r() < 0.85) { if (!drawSprite(ctx, 'sprites/oak.png', x, y, 30 + sc * 16)) chunkyTree(ctx, x, y, 1.15 + sc * 0.6, r, MAS_TREE); }
       else chunkyBush(ctx, x, y, sc, r, MAS_TREE);
     });
 
@@ -391,13 +436,15 @@
   function detailCliffs(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     var t = (timeMs || 0) * 0.001;
-    // a lighthouse on a clifftop corner — only on a few holes, and only if the
-    // corner is actually rough (never mid-fairway).
+    // a lighthouse on a clifftop corner — only on a few holes, clear of play.
     if ((holeSeed(hole) % 3) === 0) {
-      var corners = [[28, 96], [392, 96], [28, 150], [392, 150]];
+      var corners = [[34, 110], [386, 110], [34, 160], [386, 160]];
       for (var ci = 0; ci < corners.length; ci++) {
         var lx = corners[ci][0], ly = corners[ci][1];
-        if (!onPlay(hole, lx, ly, 22)) { lighthouse(ctx, lx, ly, t); break; }
+        if (!onPlay(hole, lx, ly, 26)) {
+          if (!drawSprite(ctx, 'sprites/lighthouse.png', lx, ly, 50)) lighthouse(ctx, lx, ly, t);
+          break;
+        }
       }
     }
     // crashing surf foam along the bottom/edges (animated)
@@ -758,15 +805,15 @@
   // ---- original-course detailing in the new chunky style ----
   function detailWillow(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
-    scatterRough(hole, rnd, 30, 9, function (x, y, sc, r) {
-      if (r() < 0.74) chunkyTree(ctx, x, y, 1.1 + sc * 0.6, r, TREECOL.parkland);
+    scatterRough(hole, rnd, 26, 11, function (x, y, sc, r) {
+      if (r() < 0.8) { if (!drawSprite(ctx, 'sprites/oak.png', x, y, 30 + sc * 16)) chunkyTree(ctx, x, y, 1.1 + sc * 0.6, r, TREECOL.parkland); }
       else chunkyBush(ctx, x, y, sc, r, TREECOL.parkland);
     });
   }
   function detailPine(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
-    scatterRough(hole, rnd, 34, 8, function (x, y, sc, r) {
-      pineTree(ctx, x, y, 1.1 + sc * 0.7, r);
+    scatterRough(hole, rnd, 30, 9, function (x, y, sc, r) {
+      if (!drawSprite(ctx, 'sprites/pine.png', x, y, 26 + sc * 14)) pineTree(ctx, x, y, 1.1 + sc * 0.7, r);
     });
   }
   function pineTree(ctx, x, y, scale, rnd) {
@@ -787,8 +834,8 @@
     var beachSide = holeSeed(hole) % 4;  // 0 none, 1 left, 2 right, 3 top-corner
     if (beachSide !== 0) coralBeach(ctx, hole, beachSide, timeMs);
     // palms + bushes in the rough
-    scatterRough(hole, rnd, 20, 9, function (x, y, sc, r) {
-      if (r() < 0.6) palmTree(ctx, x, y, 1.0 + sc * 0.6, r);
+    scatterRough(hole, rnd, 18, 10, function (x, y, sc, r) {
+      if (r() < 0.65) { if (!drawSprite(ctx, 'sprites/palm.png', x, y, 26 + sc * 14)) palmTree(ctx, x, y, 1.0 + sc * 0.6, r); }
       else chunkyBush(ctx, x, y, sc, r, TREECOL.palm);
     });
   }
@@ -862,9 +909,12 @@
     ctx.fillStyle = '#5a3a22'; ctx.beginPath(); ctx.arc(fx - 1.5 * s, fy + 1 * s, 1.2 * s, 0, Math.PI * 2); ctx.fill();
   }
   function detailDunes(ctx, hole, timeMs) {
-    // treeless links — just sparse marram grass tufts, no trees
+    // arid links — cacti + sparse marram grass tufts
     var rnd = seeded(holeSeed(hole));
-    scatterRough(hole, rnd, 40, 4, function (x, y, sc, r) {
+    scatterRough(hole, rnd, 10, 12, function (x, y, sc, r) {
+      drawSprite(ctx, 'sprites/cactus.png', x, y, 22 + sc * 12);
+    });
+    scatterRough(hole, rnd, 34, 4, function (x, y, sc, r) {
       ctx.strokeStyle = '#b8b06a'; ctx.lineWidth = 0.8;
       for (var i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + i - 2, y); ctx.lineTo(x + i - 2 + (r() - 0.5) * 4, y - 5 - r() * 4); ctx.stroke(); }
     });
