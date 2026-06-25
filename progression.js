@@ -151,6 +151,15 @@
               if (!state.holeStars[cid]) state.holeStars[cid] = {};
               var prevStars = state.holeStars[cid][idx] || 0;
               if (stars > prevStars) state.holeStars[cid][idx] = stars;
+              // achievements
+              if (window.Achievements) {
+                var wmph = (typeof windStateV057 !== 'undefined' && windStateV057) ? windStateV057.mph : 0;
+                Achievements.check('holeOut', { toPar: toPar, strokes: strokes, par: par, windMph: wmph });
+                // all-stars-on-course check
+                if (Progress.courseStars && Progress.courseStarsMax && Progress.courseStars(cid) >= Progress.courseStarsMax()) {
+                  Achievements.check('courseAllStars', {});
+                }
+              }
               save();
             }
             sweetThisHole = 0;
