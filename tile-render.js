@@ -29,9 +29,9 @@
       water: 'tex/masters-water.png'
     },
     coral: {
-      rough: 'tex/coral-fringe.png', fairway: 'tex/coral-fairway.png',
-      fringe: 'tex/coral-rough.png', green: 'tex/coral-green.png',
-      tee: 'tex/coral-tee.png', sand: 'tex/coral-sand.png',
+      rough: 'tex/coral-fringe.png', fairway: 'tex/coral-tee.png',
+      fringe: 'tex/coral-rough.png', green: 'tex/coral-fairway.png',
+      tee: 'tex/coral-green.png', sand: 'tex/coral-sand.png',
       water: 'tex/coral-water.png'
     },
     // Willow + Floating Isles + Pine Ridge reuse the masters grass/sand set,

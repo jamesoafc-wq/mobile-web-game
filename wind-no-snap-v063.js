@@ -21,13 +21,13 @@ resolveSkillShot = function resolveSkillShotWindNoSnapV063() {
   const power = shotInfo.power || 0.5;
   const cross = Math.sin(windAngle - shotAngle);
   const tail = Math.cos(windAngle - shotAngle);
-  const push = mph * (0.34 + power * 0.68);
+  const push = mph * (0.7 + power * 1.1);
 
   shot.windV063 = {
     driftX: Math.cos(windAngle) * push,
     driftY: Math.sin(windAngle) * push * 0.66 - Math.max(0, tail) * mph * 0.14,
-    lateralX: -Math.sin(shotAngle) * cross * mph * (0.95 + power * 0.75),
-    lateralY: Math.cos(shotAngle) * cross * mph * (0.95 + power * 0.75),
+    lateralX: -Math.sin(shotAngle) * cross * mph * (1.5 + power * 1.1),
+    lateralY: Math.cos(shotAngle) * cross * mph * (1.5 + power * 1.1),
     rollAngle: shotAngle + cross * mph * 0.006
   };
 };
@@ -48,7 +48,7 @@ updateFlight = function updateFlightWindNoSnapV063() {
   let windX = 0;
   let windY = 0;
   if (shot.windV063) {
-    const windEase = t * t * (3 - 2 * t); // reaches 1 at touchdown, so no landing snap.
+    const windEase = t * t * t * (t * (t * 6 - 15) + 10); // builds late, reaches 1 at touchdown — gradual "carried by the wind"
     const airCurve = Math.sin(t * Math.PI * 0.92) * Math.sin(t * Math.PI * 0.5);
     windX = shot.windV063.driftX * windEase + shot.windV063.lateralX * airCurve;
     windY = shot.windV063.driftY * windEase + shot.windV063.lateralY * airCurve;

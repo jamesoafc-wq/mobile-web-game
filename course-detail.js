@@ -63,17 +63,22 @@
   function placeCart(ctx, hole) {
     if (!hole.start) return;
     var sx = hole.start.x, sy = hole.start.y;
-    var candidates = [
-      { x: sx - 44, y: sy - 4 }, { x: sx + 44, y: sy - 4 },
-      { x: sx - 40, y: sy + 26 }, { x: sx + 40, y: sy + 26 },
-      { x: sx - 52, y: sy + 14 }, { x: sx + 52, y: sy + 14 },
-      { x: sx - 30, y: sy - 30 }, { x: sx + 30, y: sy - 30 }
-    ];
-    for (var ci = 0; ci < candidates.length; ci++) {
-      var c = candidates[ci];
-      if (c.x > 22 && c.x < 398 && c.y > 80 && c.y < 720 && !onPlay(hole, c.x, c.y, 14)) {
-        drawSprite(ctx, 'sprites/cart.png', c.x, c.y, 36);
-        return;
+    // search a ring of spots around the tee at increasing distance until one
+    // lands in the rough (clear of play), so the cart reliably appears.
+    var rings = [38, 50, 62, 74];
+    for (var ri = 0; ri < rings.length; ri++) {
+      var d = rings[ri];
+      var spots = [
+        { x: sx - d, y: sy }, { x: sx + d, y: sy },
+        { x: sx - d, y: sy - d * 0.5 }, { x: sx + d, y: sy - d * 0.5 },
+        { x: sx - d * 0.6, y: sy - d }, { x: sx + d * 0.6, y: sy - d }
+      ];
+      for (var i = 0; i < spots.length; i++) {
+        var c = spots[i];
+        if (c.x > 24 && c.x < 396 && c.y > 80 && c.y < 700 && !onPlay(hole, c.x, c.y, 10)) {
+          drawSprite(ctx, 'sprites/cart.png', c.x, c.y, 36);
+          return;
+        }
       }
     }
   }

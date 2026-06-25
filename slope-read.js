@@ -72,17 +72,10 @@
       var c = hs[i];
       var s = GF.greenSlope(hole, c.x, c.y);   // downhill direction + strength
       var steep = clamp(s.strength / 1.6, 0, 1);
-      // 1) HEIGHT SHADE — dark green (high) to light green (low). Always drawn so
-      // the whole green reads as a smooth elevation map.
-      var hn = (c.h - minH) / range;           // 0 low .. 1 high
-      // dark (high): ~hsl(135,45%,22%)  ->  light (low): ~hsl(120,55%,72%)
-      var L = 70 - hn * 46;                     // lightness: high=low L (dark)
-      var S = 42 + hn * 12;
-      var Hh = 122 + hn * 12;
-      ctx.fillStyle = 'hsla(' + Hh.toFixed(0) + ',' + S.toFixed(0) + '%,' + L.toFixed(0) + '%,' + (subtleMode ? 0.22 : 0.5) + ')';
-      ctx.fillRect(c.x - cell / 2, c.y - cell / 2, cell + 0.7, cell + 0.7);
+      // (HEIGHT-SHADE pass removed — it read as a circular overlay on the green.
+      // Slope is conveyed purely by the moving downhill flow dashes below.)
 
-      // 2) CONVEYOR FLOW — within each cell, draw a short moving dash travelling
+      // CONVEYOR FLOW — within each cell, draw a short moving dash travelling
       // DOWNHILL, so slope direction is instantly readable. Speed & opacity scale
       // with steepness; flat areas show little/no motion.
       if (steep < 0.06) continue;
