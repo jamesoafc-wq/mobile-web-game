@@ -435,11 +435,21 @@ function updateFlight() {
 
   ball.x = baseX + perpX * shot.finalCurvePixels * bend;
   ball.y = baseY + perpY * shot.finalCurvePixels * bend;
+
+  // WIND DRIFT: applied progressively so the ball is gradually carried. The
+  // drift grows with the square of flight progress (negligible at first, full
+  // by landing), which reads as a natural "taken by the wind" path and blends
+  // smoothly with the shot's own hook/slice curve above.
+  if (shot.windX || shot.windY) {
+    const wind = ease * ease;
+    ball.x += shot.windX * wind;
+    ball.y += shot.windY * wind;
+  }
   ball.visualScale = 1 + arc * shot.height;
 
   if (t >= 1) {
-    ball.x = shot.endX;
-    ball.y = shot.endY;
+    ball.x = clamp(shot.endX + (shot.windX || 0), 18, canvas.width - 18);
+    ball.y = clamp(shot.endY + (shot.windY || 0), 34, canvas.height - 18);
     ball.flight = null;
     ball.visualScale = 1;
     startLandingRoll(shot.landingAngle, getLie(), shot.carryYards, shot.clubKey);

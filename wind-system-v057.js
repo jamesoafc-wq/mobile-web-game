@@ -46,12 +46,9 @@ resolveSkillShot = function resolveSkillShotWindV057() {
   resolveSkillShotBeforeWindV057();
   if (!shotInfo || !ball || !ball.flight) return;
   if (clubs[shotInfo.clubKey].type === 'putt') return;
-  const influence = windStateV057.mph * (0.45 + shotInfo.power * 0.65);
-  const dx = Math.cos(windStateV057.angle) * influence;
-  const dy = Math.sin(windStateV057.angle) * influence * 0.72;
-  ball.flight.endX = clamp(ball.flight.endX + dx, 24, canvas.width - 24);
-  ball.flight.endY = clamp(ball.flight.endY + dy, 40, canvas.height - 24);
-  ball.flight.curvePixels = (ball.flight.curvePixels || 0) + Math.sin(windStateV057.angle) * windStateV057.mph * 1.4;
+  const influence = windStateV057.mph * (0.9 + shotInfo.power * 1.1);
+  ball.flight.windX = Math.cos(windStateV057.angle) * influence;
+  ball.flight.windY = Math.sin(windStateV057.angle) * influence * 0.72;
 };
 
 function windArrowV057() {

@@ -40,6 +40,48 @@
     h.name = 'Hole ' + id;
     if (!h.cup.r) h.cup.r = 4.2;
     if (cfg.special) h.special = cfg.special;   // tag for special rendering/rules
+    reshapeForCourse(h, theme);                 // per-course geometry personality
+    return h;
+  }
+
+  // ---- per-course GEOMETRY personalities ----------------------------------
+  // Each course reshapes the base hole differently so courses don't just share
+  // one silhouette: fairway width, green size, and an edge "character" (jitter).
+  var COURSE_SHAPE = {
+    willow:  { fwWidth: 1.06, green: 1.08, jitter: 0.00 },
+    coral:   { fwWidth: 0.94, green: 1.00, jitter: 0.10 },
+    dunes:   { fwWidth: 0.82, green: 0.92, jitter: 0.18 },
+    pine:    { fwWidth: 0.90, green: 0.98, jitter: 0.06 },
+    silver:  { fwWidth: 0.88, green: 1.04, jitter: 0.05 },
+    moor:    { fwWidth: 0.86, green: 0.96, jitter: 0.14 },
+    cliffs:  { fwWidth: 0.84, green: 0.94, jitter: 0.12 },
+    autumn:  { fwWidth: 0.98, green: 1.02, jitter: 0.07 },
+    glades:  { fwWidth: 0.92, green: 0.90, jitter: 0.13 },
+    moon:    { fwWidth: 1.00, green: 1.10, jitter: 0.16 },
+    mars:    { fwWidth: 0.96, green: 1.06, jitter: 0.20 },
+    sky:     { fwWidth: 0.78, green: 0.88, jitter: 0.08 },
+    masters: { fwWidth: 1.10, green: 1.14, jitter: 0.00 }
+  };
+  function centroid(poly) {
+    var x = 0, y = 0; for (var i = 0; i < poly.length; i++) { x += poly[i].x; y += poly[i].y; }
+    return { x: x / poly.length, y: y / poly.length };
+  }
+  function scaleAbout(poly, s, c, jitter, seed) {
+    var r = seed % 9973;
+    return poly.map(function (p) {
+      r = (r * 16807 + 7) % 9973; var j = jitter ? ((r / 9973) - 0.5) * jitter * 14 : 0;
+      return { x: clamp(c.x + (p.x - c.x) * s + j, 30, 390), y: clamp(c.y + (p.y - c.y) * s + j, 56, 724) };
+    });
+  }
+  function reshapeForCourse(h, theme) {
+    var sh = COURSE_SHAPE[theme]; if (!sh) return h;
+    var seed = Math.floor(h.cup.x * 31 + h.cup.y * 17 + h.id * 13) || 1;
+    if (h.fairway && h.fairway.length > 2) h.fairway = scaleAbout(h.fairway, sh.fwWidth, centroid(h.fairway), sh.jitter, seed);
+    if (h.green && h.green.length > 2) {
+      var gc = centroid(h.green);
+      h.green = scaleAbout(h.green, sh.green, gc, sh.jitter * 0.6, seed + 5);
+      if (h.greenRing && h.greenRing.length > 2) h.greenRing = scaleAbout(h.greenRing, sh.green, gc, sh.jitter * 0.6, seed + 9);
+    }
     return h;
   }
 
