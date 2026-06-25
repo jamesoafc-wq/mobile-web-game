@@ -58,18 +58,21 @@
   function windSway(x, y, timeMs) {
     return Math.sin((timeMs || 0) * 0.0011 + (x + y) * 0.05) * 0.05;
   }
-  // place a parked golf-cart sprite near the tee on some holes, clear of play
+  // place a parked golf-cart sprite near the tee, clear of play. Tries many
+  // spots so it reliably appears (was often failing the narrow checks before).
   function placeCart(ctx, hole) {
-    if (!hole.start || (holeSeed(hole) % 2) !== 0) return;
+    if (!hole.start) return;
+    var sx = hole.start.x, sy = hole.start.y;
     var candidates = [
-      { x: hole.start.x - 42, y: hole.start.y - 6 },
-      { x: hole.start.x + 42, y: hole.start.y - 6 },
-      { x: hole.start.x - 38, y: hole.start.y + 24 }
+      { x: sx - 44, y: sy - 4 }, { x: sx + 44, y: sy - 4 },
+      { x: sx - 40, y: sy + 26 }, { x: sx + 40, y: sy + 26 },
+      { x: sx - 52, y: sy + 14 }, { x: sx + 52, y: sy + 14 },
+      { x: sx - 30, y: sy - 30 }, { x: sx + 30, y: sy - 30 }
     ];
     for (var ci = 0; ci < candidates.length; ci++) {
-      var cpos = candidates[ci];
-      if (cpos.x > 20 && cpos.x < 400 && !onPlay(hole, cpos.x, cpos.y, 18)) {
-        drawSprite(ctx, 'sprites/cart.png', cpos.x, cpos.y, 34);
+      var c = candidates[ci];
+      if (c.x > 22 && c.x < 398 && c.y > 80 && c.y < 720 && !onPlay(hole, c.x, c.y, 14)) {
+        drawSprite(ctx, 'sprites/cart.png', c.x, c.y, 36);
         return;
       }
     }
@@ -259,9 +262,6 @@
     var rnd = seeded(holeSeed(hole));
     // immaculate, lush dark-green tree colour set (Augusta-style pines/hardwoods)
     var MAS_TREE = { trunk: '#5a3f28', shadow: 'rgba(12,38,18,0.34)', dark: '#155a30', mid: '#1f7a40', light: '#39a35e' };
-
-    // a parked golf cart near the tee on some holes, tucked clear of play
-    placeCart(ctx, hole);
 
     // 1) DENSE clean tree wall framing the hole — magnolia sprites + dark pines
     scatterRough(hole, rnd, 26, 11, function (x, y, sc, r) {
@@ -860,8 +860,6 @@
   }
   function detailCoral(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
-    // a parked cart near the tee on some holes (replaces the old code cart)
-    placeCart(ctx, hole);
     // BEACH + lagoon along one edge of some holes (drawn first, behind props).
     // Side rotates by hole so it's not always the same corner.
     var beachSide = holeSeed(hole) % 4;  // 0 none, 1 left, 2 right, 3 top-corner
@@ -987,6 +985,8 @@
     try {
       var t = (performance && performance.now) ? performance.now() : 0;
       var th = hole && hole.courseTheme;
+      // a parked cart near the tee on every course (clear of play)
+      placeCart(ctx, hole);
       if (th === 'masters') detailMasters(ctx, hole, t);
       else if (th === 'moor') detailMoor(ctx, hole, t);
       else if (th === 'cliffs') detailCliffs(ctx, hole, t);

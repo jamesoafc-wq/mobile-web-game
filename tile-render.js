@@ -171,16 +171,16 @@
           ctx.fillStyle = (rv < 0.18) ? pal[1] : (rv > 0.86 ? pal[2] : pal[0]);
           ctx.fillRect(x, y, TILE + 0.6, TILE + 0.6);
         }
-        // MOWING STRIPES on mown surfaces: gentle alternating vertical bands
-        // (every 2 columns) layered over the per-cell variation, so it reads as
-        // a striped lawn but still has grid-by-grid texture.
-        if (surf === 'fairway' || surf === 'green' || surf === 'fringe' || surf === 'tee') {
+        var usingTex = !!(rec && rec.ready);
+        // MOWING STRIPES on mown surfaces — ONLY on flat-colour tiles. When an
+        // image texture is used, the texture already carries its own detail, so
+        // stripes would overlap/clash with it; skip them.
+        if (!usingTex && (surf === 'fairway' || surf === 'green' || surf === 'fringe' || surf === 'tee')) {
           var band = Math.floor(c2 / 2) % 2;
           ctx.fillStyle = band ? 'rgba(255,255,255,0.085)' : 'rgba(0,0,0,0.07)';
           ctx.fillRect(x, y, TILE + 0.6, TILE + 0.6);
         }
         // per-surface PROCEDURAL texture (only when NOT using an image texture)
-        var usingTex = !!(rec && rec.ready);
         if (!usingTex && (surf === 'rough' || surf === 'fairway' || surf === 'green' || surf === 'fringe' || surf === 'tee')) {
           // little V grass tuft
           if (rv > 0.5) {
@@ -259,7 +259,8 @@
     try {
       var sk = skin(hole.courseTheme, pal);
       paintTiles(hole, sk);
-      greenHillShade(hole, sk);
+      // (green height-map shading removed — it read as a circular overlay; the
+      // animated slope-read lines convey the slope instead.)
       // now run the original for everything NON-surface (trees, props, cup, flag,
       // slope read) — but its surfaces will be hidden under nothing; we accept a
       // double-paint of surfaces beneath, which is covered by our tiles already.
