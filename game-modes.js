@@ -59,6 +59,7 @@
   }
 
   function startTournament(course) {
+    window.__forceSpectators = true;   // crowds at every tournament venue
     if (typeof applyCourseV045 === 'function') applyCourseV045(course);
     if (typeof resetRoundHoleV035 === 'function') resetRoundHoleV035(0);
     tournament = { courseId: course.id, courseName: course.name, hole: 0, scores: [], started: true, isCareer: false, ai: makeAIField(), myToPar: 0 };
@@ -173,6 +174,7 @@
     var playable = COURSES_V045.filter(function (cc) { return cc.holes && cc.holes.length && (!window.Progress || Progress.courseUnlocked(cc.id)); });
     if (!playable.length) playable = COURSES_V045.filter(function (cc) { return cc.holes && cc.holes.length; });
     var course = playable[c.seasonEvent % playable.length];
+    window.__forceSpectators = true;   // crowds at career events too
     if (typeof applyCourseV045 === 'function') applyCourseV045(course);
     if (typeof resetRoundHoleV035 === 'function') resetRoundHoleV035(0);
     tournament = { courseId: course.id, courseName: course.name, hole: 0, scores: [], started: true, isCareer: true };
@@ -412,8 +414,9 @@
   // ---- wrap the menu render: route by MODE ----
   var beforeRender = renderCourseMenuV045;
   renderCourseMenuV045 = function renderCourseMenuModes() {
-    if (MODE === 'home') { homePage(); return; }
+    if (MODE === 'home') { window.__forceSpectators = false; homePage(); return; }
     if (MODE === 'quick') {
+      window.__forceSpectators = false;
       beforeRender.apply(this, arguments);
       try {
         var shell = courseMenuV045 && courseMenuV045.firstElementChild;

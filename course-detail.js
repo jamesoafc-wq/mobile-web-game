@@ -83,6 +83,70 @@
     }
   }
 
+  // ---- SPECTATORS: galleries lining the fairway + grandstands around the green.
+  // Reusable across any course/hole: driven by hole geometry, gated by
+  // hole.spectators (settable per-hole, per-course, or for a tournament). Never
+  // on play surfaces, water or bunkers. Kept off the tee->green sight line.
+  function polyCentroid(poly) {
+    var x = 0, y = 0, n = (poly && poly.length) || 0; if (!n) return { x: 210, y: 380 };
+    for (var i = 0; i < n; i++) { x += poly[i].x; y += poly[i].y; }
+    return { x: x / n, y: y / n };
+  }
+  function inWaterOrSand(hole, x, y, pad) {
+    pad = pad || 0;
+    function near(poly) {
+      if (!poly || poly.length < 3) return false;
+      if (inPoly(x, y, poly)) return true;
+      for (var a = 0; a < 6.28; a += 1.05) if (inPoly(x + Math.cos(a) * pad, y + Math.sin(a) * pad, poly)) return true;
+      return false;
+    }
+    if (hole.water && near(hole.water)) return true;
+    if (hole.bunkers) for (var i = 0; i < hole.bunkers.length; i++) if (near(hole.bunkers[i])) return true;
+    return false;
+  }
+  function spotOk(hole, x, y, pad) {
+    if (x < 16 || x > 404 || y < 22 || y > 740) return false;
+    if (onPlay(hole, x, y, pad)) return false;
+    if (inWaterOrSand(hole, x, y, pad)) return false;
+    return true;
+  }
+  function findClear(hole, x, y, dirX, dirY, pad) {
+    for (var step = 0; step <= 10; step++) {
+      var sx = x + dirX * step * 10, sy = y + dirY * step * 10;
+      if (spotOk(hole, sx, sy, pad)) return { x: sx, y: sy };
+    }
+    return null;
+  }
+  function placeSpectators(ctx, hole, timeMs) {
+    if (!hole || !hole.spectators || hole.isRange) return;
+    var g = polyCentroid(hole.green);
+    var tee = hole.start || { x: 210, y: 700 };
+    var dx = g.x - tee.x, dy = g.y - tee.y, len = Math.hypot(dx, dy) || 1;
+    var ux = dx / len, uy = dy / len;     // toward green
+    var px = -uy, py = ux;                  // perpendicular
+    var gr = 26;
+    if (hole.green && hole.green.length) {
+      var maxd = 0; for (var i = 0; i < hole.green.length; i++) { var d = Math.hypot(hole.green[i].x - g.x, hole.green[i].y - g.y); if (d > maxd) maxd = d; }
+      gr = maxd;
+    }
+    // back grandstand (beyond green, away from tee)
+    var back = findClear(hole, g.x + ux * (gr + 24), g.y + uy * (gr + 24), ux, uy, 16);
+    if (back) drawSprite(ctx, 'sprites/stand-back.png', back.x, back.y, 96);
+    // side grandstands
+    var right = findClear(hole, g.x + px * (gr + 20), g.y + py * (gr + 20), px, py, 14);
+    if (right) drawSprite(ctx, 'sprites/stand-side-a.png', right.x, right.y, 68);
+    var left = findClear(hole, g.x - px * (gr + 20), g.y - py * (gr + 20), -px, -py, 14);
+    if (left) drawSprite(ctx, 'sprites/stand-side-b.png', left.x, left.y, 68);
+    // fairway galleries (~45% up each side)
+    if (hole.fairway && hole.fairway.length > 2) {
+      var mx = tee.x + dx * 0.45, my = tee.y + dy * 0.45;
+      var galR = findClear(hole, mx + px * 58, my + py * 58, px, py, 12);
+      if (galR) drawSprite(ctx, 'sprites/gallery-right.png', galR.x, galR.y, 48);
+      var galL = findClear(hole, mx - px * 58, my - py * 58, -px, -py, 12);
+      if (galL) drawSprite(ctx, 'sprites/gallery-left.png', galL.x, galL.y, 48);
+    }
+  }
+
 
   function inPoly(x, y, poly) {
     if (!poly || poly.length < 3) return false;
@@ -998,6 +1062,9 @@
       var th = hole && hole.courseTheme;
       // a parked cart near the tee on every course (clear of play)
       placeCart(ctx, hole);
+      // spectators (galleries + grandstands) — drawn before theme trees so the
+      // trees overlap them naturally for depth. Gated by hole.spectators.
+      placeSpectators(ctx, hole, t);
       if (th === 'masters') detailMasters(ctx, hole, t);
       else if (th === 'moor') detailMoor(ctx, hole, t);
       else if (th === 'cliffs') detailCliffs(ctx, hole, t);
@@ -1027,6 +1094,15 @@
         if (th && typeof ROUND_HOLES_V035 !== 'undefined') {
           ROUND_HOLES_V035.forEach(function (h) { if (!h.courseTheme) h.courseTheme = th; });
           if (typeof hole !== 'undefined' && hole && !hole.courseTheme) hole.courseTheme = th;
+        }
+        // SPECTATORS: enabled when the course opts in (course.spectators), when a
+        // tournament requests them (window.__forceSpectators), or always on the
+        // Magnolia Grand (masters). This is the single switch that lets any
+        // course — including a one-off tournament venue — show galleries+stands.
+        var wantCrowd = !!(course && course.spectators) || !!window.__forceSpectators || (course && (course.id === 'masters' || course.theme === 'masters'));
+        if (typeof ROUND_HOLES_V035 !== 'undefined') {
+          ROUND_HOLES_V035.forEach(function (h) { h.spectators = wantCrowd; });
+          if (typeof hole !== 'undefined' && hole) hole.spectators = wantCrowd;
         }
       } catch (e) {}
     };
