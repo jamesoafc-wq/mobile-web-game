@@ -83,10 +83,8 @@
     }
   }
 
-  // ---- SPECTATORS: galleries lining the fairway + grandstands around the green.
-  // Reusable across any course/hole: driven by hole geometry, gated by
-  // hole.spectators (settable per-hole, per-course, or for a tournament). Never
-  // on play surfaces, water or bunkers. Kept off the tee->green sight line.
+  // spectator footprints placed this frame, so trees can avoid them
+  var spectatorZones = [];
   function polyCentroid(poly) {
     var x = 0, y = 0, n = (poly && poly.length) || 0; if (!n) return { x: 210, y: 380 };
     for (var i = 0; i < n; i++) { x += poly[i].x; y += poly[i].y; }
@@ -104,47 +102,90 @@
     if (hole.bunkers) for (var i = 0; i < hole.bunkers.length; i++) if (near(hole.bunkers[i])) return true;
     return false;
   }
-  function spotOk(hole, x, y, pad) {
-    if (x < 16 || x > 404 || y < 22 || y > 740) return false;
-    if (onPlay(hole, x, y, pad)) return false;
-    if (inWaterOrSand(hole, x, y, pad)) return false;
+  // check the sprite's GROUND CONTACT (a shallow band at its base) is clear of
+  // play, water and bunkers. We don't test the full sprite height — the tall
+  // crowd legitimately rises over rough; only the footprint must be clear.
+  function footprintClear(hole, x, y, w) {
+    var hw = w / 2;
+    for (var sx = -hw; sx <= hw; sx += w / 5) {
+      for (var sy = -8; sy <= 6; sy += 7) {
+        var tx = x + sx, ty = y + sy;
+        if (tx < 14 || tx > 406 || ty < 18 || ty > 742) return false;
+        if (onPlay(hole, tx, ty, 3)) return false;
+        if (inWaterOrSand(hole, tx, ty, 3)) return false;
+      }
+    }
     return true;
   }
-  function findClear(hole, x, y, dirX, dirY, pad) {
-    for (var step = 0; step <= 10; step++) {
-      var sx = x + dirX * step * 10, sy = y + dirY * step * 10;
-      if (spotOk(hole, sx, sy, pad)) return { x: sx, y: sy };
+  // step outward from a target until the footprint base is clear
+  function findClearFootprint(hole, x, y, dirX, dirY, w) {
+    for (var step = 0; step <= 16; step++) {
+      var sx = x + dirX * step * 8, sy = y + dirY * step * 8;
+      if (footprintClear(hole, sx, sy, w)) return { x: sx, y: sy };
+    }
+    return null;
+  }
+  function pushZone(pos, w, h) { if (pos) spectatorZones.push({ x: pos.x, y: pos.y, w: w, h: h }); }
+
+  // try several candidate directions from a target, return first clear footprint
+  // that keeps the whole sprite on-screen (sprite is anchored with its base near
+  // y, rising upward by ~h, so we need y - h*0.6 >= 4).
+  function tryDirections(hole, x, y, dirs, w, h) {
+    for (var di = 0; di < dirs.length; di++) {
+      var d = dirs[di];
+      var pos = findClearFootprint(hole, x, y, d[0], d[1], w);
+      if (pos && pos.x > 20 && pos.x < 400 && (pos.y - h * 0.62) > 4 && (pos.y + h * 0.2) < 748) return pos;
     }
     return null;
   }
   function placeSpectators(ctx, hole, timeMs) {
+    spectatorZones = [];
     if (!hole || !hole.spectators || hole.isRange) return;
     var g = polyCentroid(hole.green);
     var tee = hole.start || { x: 210, y: 700 };
     var dx = g.x - tee.x, dy = g.y - tee.y, len = Math.hypot(dx, dy) || 1;
     var ux = dx / len, uy = dy / len;     // toward green
-    var px = -uy, py = ux;                  // perpendicular
+    var px = -uy, py = ux;                  // perpendicular (right)
     var gr = 26;
     if (hole.green && hole.green.length) {
       var maxd = 0; for (var i = 0; i < hole.green.length; i++) { var d = Math.hypot(hole.green[i].x - g.x, hole.green[i].y - g.y); if (d > maxd) maxd = d; }
       gr = maxd;
     }
-    // back grandstand (beyond green, away from tee)
-    var back = findClear(hole, g.x + ux * (gr + 24), g.y + uy * (gr + 24), ux, uy, 16);
-    if (back) drawSprite(ctx, 'sprites/stand-back.png', back.x, back.y, 96);
-    // side grandstands
-    var right = findClear(hole, g.x + px * (gr + 20), g.y + py * (gr + 20), px, py, 14);
-    if (right) drawSprite(ctx, 'sprites/stand-side-a.png', right.x, right.y, 68);
-    var left = findClear(hole, g.x - px * (gr + 20), g.y - py * (gr + 20), -px, -py, 14);
-    if (left) drawSprite(ctx, 'sprites/stand-side-b.png', left.x, left.y, 68);
-    // fairway galleries (~45% up each side)
+    var BACK_W = 168, SIDE_W = 120, GAL_W = 84;
+    var BACK_H = BACK_W * 0.41, SIDE_H = SIDE_W * 0.78, GAL_H = GAL_W * 3.0;
+    var off = gr + 34;
+
+    // BACK grandstand: behind the green (beyond it from the tee). Only if there's
+    // vertical room — if the green hugs the top edge, the back stand has nowhere
+    // to go, so we skip it and let the side stands frame the green instead.
+    var back = null;
+    if (g.y > BACK_H * 0.7 + 16) {
+      back = tryDirections(hole, g.x + ux * off, g.y + uy * off, [[ux, uy], [px, py], [-px, -py]], BACK_W, BACK_H);
+      if (back) { drawSprite(ctx, 'sprites/stand-back.png', back.x, back.y, BACK_W); pushZone(back, BACK_W, BACK_H); }
+    }
+
+    // SIDE grandstands left & right of the green.
+    var right = tryDirections(hole, g.x + px * off, g.y + py * off, [[px, py], [px * 0.7 + ux * 0.7, py * 0.7 + uy * 0.7]], SIDE_W, SIDE_H);
+    if (right && (!back || Math.hypot(right.x - back.x, right.y - back.y) > 50)) { drawSprite(ctx, 'sprites/stand-side-a.png', right.x, right.y, SIDE_W); pushZone(right, SIDE_W, SIDE_H); }
+    var left = tryDirections(hole, g.x - px * off, g.y - py * off, [[-px, -py], [-px * 0.7 + ux * 0.7, -py * 0.7 + uy * 0.7]], SIDE_W, SIDE_H);
+    if (left && (!back || Math.hypot(left.x - back.x, left.y - back.y) > 50)) { drawSprite(ctx, 'sprites/stand-side-b.png', left.x, left.y, SIDE_W); pushZone(left, SIDE_W, SIDE_H); }
+
+    // FAIRWAY galleries — partway up each side of the fairway, kept on-screen.
     if (hole.fairway && hole.fairway.length > 2) {
       var mx = tee.x + dx * 0.45, my = tee.y + dy * 0.45;
-      var galR = findClear(hole, mx + px * 58, my + py * 58, px, py, 12);
-      if (galR) drawSprite(ctx, 'sprites/gallery-right.png', galR.x, galR.y, 48);
-      var galL = findClear(hole, mx - px * 58, my - py * 58, -px, -py, 12);
-      if (galL) drawSprite(ctx, 'sprites/gallery-left.png', galL.x, galL.y, 48);
+      var galR = findClearFootprint(hole, mx + px * 64, my + py * 64, px, py, GAL_W);
+      if (galR && (galR.y - GAL_H * 0.62) > 4 && (galR.y + GAL_H * 0.2) < 748) { drawSprite(ctx, 'sprites/gallery-right.png', galR.x, galR.y, GAL_W); pushZone(galR, GAL_W, GAL_H); }
+      var galL = findClearFootprint(hole, mx - px * 64, my - py * 64, -px, -py, GAL_W);
+      if (galL && (galL.y - GAL_H * 0.62) > 4 && (galL.y + GAL_H * 0.2) < 748) { drawSprite(ctx, 'sprites/gallery-left.png', galL.x, galL.y, GAL_W); pushZone(galL, GAL_W, GAL_H); }
     }
+  }
+  // is (x,y) inside any spectator footprint (so trees avoid them)?
+  function inSpectatorZone(x, y) {
+    for (var i = 0; i < spectatorZones.length; i++) {
+      var z = spectatorZones[i];
+      if (Math.abs(x - z.x) < z.w / 2 + 8 && y > z.y - z.h && y < z.y + z.h * 0.2) return true;
+    }
+    return false;
   }
 
 
@@ -185,6 +226,7 @@
       tries++;
       var x = 8 + rnd() * (W - 16), y = 74 + rnd() * (H - 150);
       if (onPlay(hole, x, y, pad)) continue;
+      if (inSpectatorZone(x, y)) continue;   // don't cover the crowds
       draw(x, y, 0.85 + rnd() * 0.6, rnd);
       placed++;
     }
