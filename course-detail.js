@@ -759,11 +759,10 @@
     // ISLAND (snapped to the tile grid) so a cloud slides under the blocky island
     // — including fringe, water and bunkers — and reappears the other side.
     ctx.save();
-    if (window.__tileIslandClip) {
+    if (window.__tileVoidClip) {
       ctx.beginPath();
-      ctx.rect(0, 0, 420, 760);
-      window.__tileIslandClip(ctx, hole);
-      ctx.clip('evenodd');
+      window.__tileVoidClip(ctx, hole);
+      ctx.clip();
     } else if (typeof clipOutPlay === 'function') {
       clipOutPlay(ctx, hole);
     }

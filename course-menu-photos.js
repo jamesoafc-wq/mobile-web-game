@@ -282,13 +282,18 @@
     shell.appendChild(grid);
 
     // ---- customisation locker: Balls / Tracers tabs ----
+    // Wrapped in a tagged container so the mode router can relocate it to the
+    // dedicated Shop page and hide it from Quick Play.
+    var lockerWrap = document.createElement('div');
+    lockerWrap.dataset.locker = 'true';
+    shell.appendChild(lockerWrap);
     if (window.Progress) {
       var custTitle = document.createElement('div');
       custTitle.innerHTML =
         '<div style="font:950 16px system-ui;color:#eef8d8;">Locker</div>' +
         '<div style="font:750 11px system-ui;color:rgba(232,246,222,.7);margin-top:3px;">Earn coins playing rounds — unlock & equip.</div>';
       custTitle.style.margin = '24px 0 10px';
-      shell.appendChild(custTitle);
+      lockerWrap.appendChild(custTitle);
 
       // tab bar
       var tabs = document.createElement('div');
@@ -311,7 +316,7 @@
         tb.addEventListener('click', function () { lockerTab = t[0]; renderPhotoMenu(); });
         tabs.appendChild(tb);
       });
-      shell.appendChild(tabs);
+      lockerWrap.appendChild(tabs);
 
       var grid2 = document.createElement('div');
       grid2.style.display = 'grid';
@@ -387,7 +392,7 @@
         grid2.appendChild(cell);
       });
 
-      shell.appendChild(grid2);
+      lockerWrap.appendChild(grid2);
     }
     courseMenuV045.appendChild(shell);
   }

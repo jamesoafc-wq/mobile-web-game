@@ -378,7 +378,7 @@
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:10px;margin-top:8px;';
     row.appendChild(secondaryTile('Practice', '🏌️', function () { MODE = 'practice'; renderCourseMenuV045(); }));
-    row.appendChild(secondaryTile('Shop', '🛍️', function () { MODE = 'quick'; renderCourseMenuV045(); setTimeout(function () { var l = document.querySelector('[data-locker]'); if (l) l.scrollIntoView({ behavior: 'smooth' }); }, 60); }));
+    row.appendChild(secondaryTile('Shop', '🛍️', function () { MODE = 'shop'; renderCourseMenuV045(); }));
     row.appendChild(secondaryTile('Awards', '🏅', function () { MODE = 'awards'; renderCourseMenuV045(); }));
     shell.appendChild(row);
 
@@ -417,7 +417,32 @@
       beforeRender.apply(this, arguments);
       try {
         var shell = courseMenuV045 && courseMenuV045.firstElementChild;
-        if (shell) { shell.insertBefore(backBar('home'), shell.firstChild); quickExtras(shell); }
+        if (shell) {
+          shell.insertBefore(backBar('home'), shell.firstChild);
+          quickExtras(shell);
+          // remove the locker/shop from quick play (it has its own Shop page)
+          var lk = shell.querySelector('[data-locker]'); if (lk) lk.remove();
+        }
+      } catch (e) {}
+      return;
+    }
+    if (MODE === 'shop') {
+      // render the normal menu, then strip everything except the locker
+      beforeRender.apply(this, arguments);
+      try {
+        var shell2 = courseMenuV045 && courseMenuV045.firstElementChild;
+        if (shell2) {
+          var locker = shell2.querySelector('[data-locker]');
+          courseMenuV045.innerHTML = '';
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'max-width:460px;margin:0 auto;padding:18px 16px 40px;';
+          wrap.appendChild(backBar('home'));
+          var t = document.createElement('div'); t.innerHTML = '<div style="font:950 22px system-ui;color:#eef8d8;">Shop</div>'; t.style.marginBottom = '8px';
+          wrap.appendChild(t);
+          if (locker) wrap.appendChild(locker);
+          else wrap.innerHTML += '<div style="color:rgba(232,246,222,.7);font:800 12px system-ui;">Shop unavailable.</div>';
+          courseMenuV045.appendChild(wrap);
+        }
       } catch (e) {}
       return;
     }

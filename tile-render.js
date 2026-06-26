@@ -119,21 +119,19 @@
     return (s % 1000) / 1000;
   }
 
-  // Build a clip path of the ISLAND (any non-rough surface) snapped to the tile
-  // grid, so things drawn behind it (e.g. floating-isles clouds) hide along the
-  // exact blocky cell edges that are actually rendered — not the old smooth
-  // polygons. Sets the path on ctx; caller calls ctx.clip(...) / restore.
-  function traceIslandTiles(ctx, hole) {
+  // Build a clip path of the VOID (rough cells only) snapped to the tile grid.
+  // Clouds clipped to this show ONLY off-island, so they never bleed through the
+  // gridlines of fringe/water/bunker cells.
+  function traceVoidTiles(ctx, hole) {
     var cols = Math.ceil(W / TILE), rows = Math.ceil(H / TILE);
     for (var r = 0; r < rows; r++) {
       for (var c = 0; c < cols; c++) {
         var s = surfaceAt(hole, c * TILE + TILE / 2, r * TILE + TILE / 2);
-        if (s !== 'rough') ctx.rect(c * TILE, r * TILE, TILE + 0.6, TILE + 0.6);
+        if (s === 'rough') ctx.rect(c * TILE - 0.4, r * TILE - 0.4, TILE + 0.8, TILE + 0.8);
       }
     }
   }
-  // expose for other modules (cloud clipping)
-  window.__tileIslandClip = function (ctx, hole) { traceIslandTiles(ctx, hole); };
+  window.__tileVoidClip = function (ctx, hole) { traceVoidTiles(ctx, hole); };
 
   function paintTiles(hole, sk) {
     var texSet = TEX_SETS[hole.courseTheme] || null;

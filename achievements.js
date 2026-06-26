@@ -94,23 +94,23 @@
   function buildPanel() {
     var wrap = document.createElement('div');
     wrap.dataset.achvPanel = 'true';
-    wrap.style.cssText = 'margin:0 0 14px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(238,248,216,.16);';
-    wrap.innerHTML = '<div style="font:950 15px system-ui;color:#eef8d8;display:flex;justify-content:space-between;">' +
+    wrap.style.cssText = 'margin:0 0 14px;';
+    wrap.innerHTML = '<div style="font:950 15px system-ui;color:#eef8d8;display:flex;justify-content:space-between;margin-bottom:10px;">' +
       '<span>Achievements</span><span style="color:#ffe27a;">' + count() + ' / ' + CATALOG.length + '</span></div>';
-    var grid = document.createElement('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px;';
     CATALOG.forEach(function (a) {
       var got = !!unlocked[a.id];
-      var cell = document.createElement('div');
-      cell.title = a.name + ' — ' + a.desc;
-      cell.style.cssText = 'aspect-ratio:1;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;' +
-        'background:' + (got ? 'linear-gradient(135deg,#2a7d46,#155a30)' : 'rgba(255,255,255,.04)') + ';' +
-        'border:1px solid ' + (got ? 'rgba(255,226,122,.5)' : 'rgba(255,255,255,.08)') + ';' +
-        'filter:' + (got ? 'none' : 'grayscale(1) opacity(.4)') + ';';
-      cell.textContent = a.icon;
-      grid.appendChild(cell);
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;margin-bottom:6px;' +
+        'background:' + (got ? 'linear-gradient(135deg,rgba(42,125,70,.5),rgba(21,90,48,.5))' : 'rgba(255,255,255,.04)') + ';' +
+        'border:1px solid ' + (got ? 'rgba(255,226,122,.4)' : 'rgba(255,255,255,.08)') + ';';
+      row.innerHTML =
+        '<div style="font-size:24px;filter:' + (got ? 'none' : 'grayscale(1) opacity(.5)') + ';">' + a.icon + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font:900 13px system-ui;color:' + (got ? '#fff' : 'rgba(232,246,222,.85)') + ';">' + a.name + '</div>' +
+        '<div style="font:750 11px system-ui;color:rgba(232,246,222,.62);margin-top:1px;">' + a.desc + '</div></div>' +
+        '<div style="font:900 11px system-ui;color:' + (got ? '#ffe27a' : 'rgba(255,255,255,.35)') + ';">' + (got ? '✓ Done' : 'Locked') + '</div>';
+      wrap.appendChild(row);
     });
-    wrap.appendChild(grid);
     return wrap;
   }
 

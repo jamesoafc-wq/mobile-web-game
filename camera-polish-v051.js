@@ -78,6 +78,10 @@ if (typeof applyCourseV045 === 'function') {
 
 function drawHoleIntroV051() {
   if (!cameraStateV051.intro) return;
+  // Legacy hole-number/par banner DISABLED — replaced by the clean hole card in
+  // hole-intro.js. (Camera intro motion is kept; only this tile is suppressed.)
+  return;
+  /* eslint-disable no-unreachable */
   const elapsed = performance.now() - cameraStateV051.intro.startedAt;
   const t = elapsed / cameraStateV051.introDuration;
   const alpha = t < 0.18 ? t / 0.18 : t > 0.72 ? 1 - (t - 0.72) / 0.28 : 1;
