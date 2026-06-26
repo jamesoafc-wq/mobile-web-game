@@ -62,7 +62,7 @@
     if (introSprites[url]) return introSprites[url];
     var rec = { img: new Image(), ready: false };
     rec.img.onload = function () { rec.ready = true; };
-    rec.img.src = url + '?v3';
+    rec.img.src = url + '?v4';
     introSprites[url] = rec;
     return rec;
   }
@@ -106,7 +106,7 @@
       var sy = lerp(b.minY + 40, b.maxY - 40, i / (n - 1));
       var sx = (b.minX + b.maxX) / 2 + Math.sin(i * 2.1 + seed) * (b.maxX - b.minX) * 0.18;
       if (rec.ready) {
-        var w = 30, h = w * (rec.img.height / rec.img.width);
+        var w = 90, h = w * (rec.img.height / rec.img.width);
         var ax = w * SPR_ANCHOR_X, ay = h * SPR_ANCHOR_Y;
         // rotate the spray around the NOZZLE point (sx,sy) so the water spins
         var rot = timeMs * 0.0022 + i * 1.7;
