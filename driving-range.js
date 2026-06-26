@@ -11,7 +11,7 @@
   function rangeHole() {
     var h = {
       id: 1, name: 'Driving Range', par: 3, courseTheme: 'masters', isRange: true,
-      start: { x: 210, y: 690 },
+      start: { x: 210, y: 662 },
       cup: { x: 210, y: 150, r: 4.2 },
       // wide rectangular fairway spanning the canvas
       fairway: [
@@ -21,8 +21,8 @@
       // a target green up top
       greenRing: ringPoly(210, 150, 60, 44),
       green: ringPoly(210, 150, 50, 36),
-      // three teeing grounds across the bottom
-      tee: rect(150, 660, 120, 50),
+      // a wide teeing ground across the bottom (start sits on it)
+      tee: rect(210, 668, 200, 64),
       bunkers: [],
       water: [],
       trees: [],
@@ -63,8 +63,51 @@
       if (typeof resetRoundHoleV035 === 'function') resetRoundHoleV035(0);
       if (typeof hideCourseMenuV045 === 'function') hideCourseMenuV045();
       if (typeof updateHud === 'function') updateHud();
+      rangeActive = true;
+      newDriveWind();
     }
   };
+
+  var rangeActive = false;
+  function newDriveWind() {
+    if (typeof windStateV057 === 'undefined') return;
+    var mph = Math.round(2 + Math.random() * 16);
+    var ang = Math.random() * Math.PI * 2;
+    windStateV057 = { angle: ang, mph: mph, label: (typeof windLabelV057 === 'function' ? windLabelV057(mph) : 'Wind'), difficulty: 2 };
+  }
+
+  // DRIVES ONLY: after each shot comes to rest, reset the ball to the tee and
+  // roll a fresh wind, so it's a continuous series of tee shots (not a hole).
+  if (typeof maybeHoleOut === 'function') {
+    var beforeRangeHoleOut = maybeHoleOut;
+    maybeHoleOut = function maybeHoleOutRange() {
+      if (rangeActive && typeof hole !== 'undefined' && hole && hole.isRange && !hole.isPutt) {
+        // suppress normal hole-out logic on the range; handle reset ourselves
+        if (ball && !ball.flight && !ball.rolling && !ball.holed) {
+          // ball at rest after a drive — reset to tee for the next drive
+          if (typeof resetBallToTeeRange === 'function') resetBallToTeeRange();
+          else resetRangeBall();
+          return;
+        }
+      }
+      beforeRangeHoleOut.apply(this, arguments);
+    };
+  }
+  function resetRangeBall() {
+    if (typeof ball === 'undefined' || !hole) return;
+    setTimeout(function () {
+      ball.x = hole.start.x; ball.y = hole.start.y;
+      ball.flight = null; ball.rolling = false; ball.holed = false;
+      if (typeof strokes !== 'undefined') strokes = 0;
+      newDriveWind();
+      if (typeof updateHud === 'function') updateHud();
+    }, 900);
+  }
+
+  if (typeof showCourseMenuV045 === 'function') {
+    var beforeShowRange = showCourseMenuV045;
+    showCourseMenuV045 = function () { rangeActive = false; beforeShowRange.apply(this, arguments); };
+  }
 
   // ---- render the range-only props (signs, flags) by wrapping theme extras ----
   if (typeof drawThemeExtrasV046 === 'function') {

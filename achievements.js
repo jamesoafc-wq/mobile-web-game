@@ -15,21 +15,21 @@
 
   // catalogue: id -> { name, desc, icon, secret? }
   var CATALOG = [
-    { id: 'first_round', name: 'Teed Off', desc: 'Finish your first hole', icon: '⛳' },
-    { id: 'first_birdie', name: 'Birdie!', desc: 'Score your first birdie', icon: '🐦' },
-    { id: 'first_eagle', name: 'Eagle Eye', desc: 'Score an eagle', icon: '🦅' },
-    { id: 'hole_in_one', name: 'Ace', desc: 'Score a hole-in-one', icon: '🎯' },
-    { id: 'par3_birdie_set', name: 'Short Game', desc: 'Birdie a par 3', icon: '🏌️' },
-    { id: 'under_par_round', name: 'Red Numbers', desc: 'Finish a course under par', icon: '🔴' },
-    { id: 'sand_save', name: 'Sand Save', desc: 'Hole out from a bunker', icon: '🏖️' },
-    { id: 'long_putt', name: 'Snake Killer', desc: 'Sink a putt from long range', icon: '🐍' },
-    { id: 'five_courses', name: 'Globetrotter', desc: 'Play 5 different courses', icon: '🌍' },
-    { id: 'all_stars_course', name: 'Flawless', desc: 'Earn all 54 stars on a course', icon: '⭐' },
-    { id: 'level_10', name: 'Rising Star', desc: 'Reach level 10', icon: '📈' },
-    { id: 'daily_streak_7', name: 'Dedicated', desc: '7-day daily streak', icon: '🔥' },
-    { id: 'wind_master', name: 'Wind Whisperer', desc: 'Birdie in strong wind (12+ mph)', icon: '💨' },
-    { id: 'tournament_win', name: 'Champion', desc: 'Win a tournament', icon: '🏆' },
-    { id: 'career_tour2', name: 'Climbing', desc: 'Reach the second tour in Career', icon: '🪜' }
+    { id: 'first_round', name: 'Finish a Hole', desc: 'Complete your first hole', icon: '⛳' },
+    { id: 'first_birdie', name: 'Score a Birdie', desc: '1 under par on a hole', icon: '🐦' },
+    { id: 'first_eagle', name: 'Score an Eagle', desc: '2 under par on a hole', icon: '🦅' },
+    { id: 'hole_in_one', name: 'Hole-in-One', desc: 'Hole out in a single shot', icon: '🎯' },
+    { id: 'par3_birdie_set', name: 'Birdie a Par 3', desc: 'Birdie any par-3 hole', icon: '🏌️' },
+    { id: 'under_par_round', name: 'Finish Under Par', desc: 'Complete a course under par', icon: '🔴' },
+    { id: 'sand_save', name: 'Hole Out From Sand', desc: 'Sink a shot from a bunker', icon: '🏖️' },
+    { id: 'long_putt', name: 'Sink a Long Putt', desc: 'Hole a putt from long range', icon: '🐍' },
+    { id: 'five_courses', name: 'Play 5 Courses', desc: 'Play 5 different courses', icon: '🌍' },
+    { id: 'all_stars_course', name: 'All 54 Stars', desc: 'Earn every star on one course', icon: '⭐' },
+    { id: 'level_10', name: 'Reach Level 10', desc: 'Hit player level 10', icon: '📈' },
+    { id: 'daily_streak_7', name: '7-Day Daily Streak', desc: 'Play 7 daily challenges in a row', icon: '🔥' },
+    { id: 'wind_master', name: 'Birdie in Strong Wind', desc: 'Birdie with wind 12+ mph', icon: '💨' },
+    { id: 'tournament_win', name: 'Win a Tournament', desc: 'Finish 1st in a tournament', icon: '🏆' },
+    { id: 'career_tour2', name: 'Reach 2nd Career Tour', desc: 'Get promoted to the Challenger Tour', icon: '🪜' }
   ];
   var BY_ID = {}; CATALOG.forEach(function (a) { BY_ID[a.id] = a; });
 

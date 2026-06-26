@@ -755,11 +755,18 @@
   function detailSky(ctx, hole, timeMs) {
     var rnd = seeded(holeSeed(hole));
     var t = (timeMs || 0) * 0.001;
-    // BIG clouds drifting continuously BELOW the islands. We clip them OUT of the
-    // play surfaces (fairway/green/tee), so a cloud slides smoothly under the
-    // island and reappears the other side — no pop in/out.
+    // BIG clouds drifting continuously BELOW the islands. Clip them OUT of the
+    // ISLAND (snapped to the tile grid) so a cloud slides under the blocky island
+    // — including fringe, water and bunkers — and reappears the other side.
     ctx.save();
-    if (typeof clipOutPlay === 'function') clipOutPlay(ctx, hole);
+    if (window.__tileIslandClip) {
+      ctx.beginPath();
+      ctx.rect(0, 0, 420, 760);
+      window.__tileIslandClip(ctx, hole);
+      ctx.clip('evenodd');
+    } else if (typeof clipOutPlay === 'function') {
+      clipOutPlay(ctx, hole);
+    }
     for (var i = 0; i < 7; i++) {
       var cx = ((i * 150 + t * 14) % 560) - 70;
       var cy = 110 + (i * 89) % 560;
