@@ -125,7 +125,13 @@
     }
     return null;
   }
-  function pushZone(pos, w, h) { if (pos) spectatorZones.push({ x: pos.x, y: pos.y, w: w, h: h }); }
+  // record a zone covering the sprite's ACTUAL drawn bounds (anchor at base,
+  // sprite rises by ~0.62*drawHeight above y). imgAspect = imgH/imgW.
+  function pushZone(pos, w, imgAspect) {
+    if (!pos) return;
+    var dh = w * imgAspect;
+    spectatorZones.push({ x: pos.x, y: pos.y, w: w, top: pos.y - dh * 0.66, bot: pos.y + dh * 0.4 });
+  }
 
   // try several candidate directions from a target, return first clear footprint
   // that keeps the whole sprite on-screen (sprite is anchored with its base near
@@ -151,7 +157,7 @@
       var maxd = 0; for (var i = 0; i < hole.green.length; i++) { var d = Math.hypot(hole.green[i].x - g.x, hole.green[i].y - g.y); if (d > maxd) maxd = d; }
       gr = maxd;
     }
-    var BACK_W = 168, SIDE_W = 120, GAL_W = 84;
+    var BACK_W = 168, SIDE_W = 120, GAL_W = 54;
     var BACK_H = BACK_W * 0.41, SIDE_H = SIDE_W * 0.78, GAL_H = GAL_W * 3.0;
     var off = gr + 34;
 
@@ -161,29 +167,31 @@
     var back = null;
     if (g.y > BACK_H * 0.7 + 16) {
       back = tryDirections(hole, g.x + ux * off, g.y + uy * off, [[ux, uy], [px, py], [-px, -py]], BACK_W, BACK_H);
-      if (back) { drawSprite(ctx, 'sprites/stand-back.png', back.x, back.y, BACK_W); pushZone(back, BACK_W, BACK_H); }
+      if (back) { drawSprite(ctx, 'sprites/stand-back.png', back.x, back.y, BACK_W); pushZone(back, BACK_W, 0.41); }
     }
 
     // SIDE grandstands left & right of the green.
     var right = tryDirections(hole, g.x + px * off, g.y + py * off, [[px, py], [px * 0.7 + ux * 0.7, py * 0.7 + uy * 0.7]], SIDE_W, SIDE_H);
-    if (right && (!back || Math.hypot(right.x - back.x, right.y - back.y) > 50)) { drawSprite(ctx, 'sprites/stand-side-a.png', right.x, right.y, SIDE_W); pushZone(right, SIDE_W, SIDE_H); }
+    if (right && (!back || Math.hypot(right.x - back.x, right.y - back.y) > 50)) { drawSprite(ctx, 'sprites/stand-side-a.png', right.x, right.y, SIDE_W); pushZone(right, SIDE_W, 0.74); }
     var left = tryDirections(hole, g.x - px * off, g.y - py * off, [[-px, -py], [-px * 0.7 + ux * 0.7, -py * 0.7 + uy * 0.7]], SIDE_W, SIDE_H);
-    if (left && (!back || Math.hypot(left.x - back.x, left.y - back.y) > 50)) { drawSprite(ctx, 'sprites/stand-side-b.png', left.x, left.y, SIDE_W); pushZone(left, SIDE_W, SIDE_H); }
+    if (left && (!back || Math.hypot(left.x - back.x, left.y - back.y) > 50)) { drawSprite(ctx, 'sprites/stand-side-b.png', left.x, left.y, SIDE_W); pushZone(left, SIDE_W, 0.81); }
 
     // FAIRWAY galleries — partway up each side of the fairway, kept on-screen.
     if (hole.fairway && hole.fairway.length > 2) {
       var mx = tee.x + dx * 0.45, my = tee.y + dy * 0.45;
       var galR = findClearFootprint(hole, mx + px * 64, my + py * 64, px, py, GAL_W);
-      if (galR && (galR.y - GAL_H * 0.62) > 4 && (galR.y + GAL_H * 0.2) < 748) { drawSprite(ctx, 'sprites/gallery-right.png', galR.x, galR.y, GAL_W); pushZone(galR, GAL_W, GAL_H); }
+      if (galR && (galR.y - GAL_H * 0.62) > 4 && (galR.y + GAL_H * 0.2) < 748) { drawSprite(ctx, 'sprites/gallery-right.png', galR.x, galR.y, GAL_W); pushZone(galR, GAL_W, 3.57); }
       var galL = findClearFootprint(hole, mx - px * 64, my - py * 64, -px, -py, GAL_W);
-      if (galL && (galL.y - GAL_H * 0.62) > 4 && (galL.y + GAL_H * 0.2) < 748) { drawSprite(ctx, 'sprites/gallery-left.png', galL.x, galL.y, GAL_W); pushZone(galL, GAL_W, GAL_H); }
+      if (galL && (galL.y - GAL_H * 0.62) > 4 && (galL.y + GAL_H * 0.2) < 748) { drawSprite(ctx, 'sprites/gallery-left.png', galL.x, galL.y, GAL_W); pushZone(galL, GAL_W, 3.03); }
     }
   }
   // is (x,y) inside any spectator footprint (so trees avoid them)?
   function inSpectatorZone(x, y) {
     for (var i = 0; i < spectatorZones.length; i++) {
       var z = spectatorZones[i];
-      if (Math.abs(x - z.x) < z.w / 2 + 8 && y > z.y - z.h && y < z.y + z.h * 0.2) return true;
+      // pad downward by ~30px so a tree whose BASE sits below the zone but whose
+      // CANOPY rises into it is also excluded (canopy draws above the trunk).
+      if (Math.abs(x - z.x) < z.w / 2 + 12 && y > z.top - 6 && y < z.bot + 34) return true;
     }
     return false;
   }
