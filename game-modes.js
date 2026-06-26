@@ -317,24 +317,46 @@
     return b;
   }
 
-  // big mode button for the home page
-  function modeButton(label, sub, icon, grad, onClick) {
+  // big mode button for the home page — photo banner behind, dark scrim for text
+  function modeButton(label, sub, icon, grad, onClick, bgImg) {
     var b = document.createElement('button');
-    b.style.cssText = 'display:block;width:100%;margin-bottom:12px;padding:20px 18px;border:1px solid rgba(255,226,122,.3);border-radius:18px;cursor:pointer;text-align:left;' +
-      'background:' + grad + ';color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.26);transition:transform .15s;';
-    b.innerHTML = '<div style="font:950 19px system-ui;display:flex;align-items:center;gap:10px;">' + icon + ' ' + label + '</div>' +
-      '<div style="font:800 12px system-ui;color:rgba(255,255,255,.82);margin-top:4px;">' + sub + '</div>';
+    b.style.cssText = 'position:relative;display:block;width:100%;margin-bottom:12px;padding:22px 18px;border:1px solid rgba(255,226,122,.3);border-radius:18px;cursor:pointer;text-align:left;overflow:hidden;' +
+      'background:' + grad + ';color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.26);transition:transform .15s;min-height:84px;';
+    if (bgImg) {
+      var bg = document.createElement('div');
+      bg.style.cssText = 'position:absolute;inset:0;background-image:url("' + bgImg + '");background-size:cover;background-position:center;opacity:0;transition:opacity .35s;';
+      var im = new Image(); im.onload = function () { bg.style.opacity = '1'; }; im.src = bgImg;
+      var scrim = document.createElement('div');
+      scrim.style.cssText = 'position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,18,10,.82) 0%,rgba(8,18,10,.5) 55%,rgba(8,18,10,.25) 100%);';
+      b.appendChild(bg); b.appendChild(scrim);
+    }
+    var content = document.createElement('div');
+    content.style.cssText = 'position:relative;z-index:1;';
+    content.innerHTML = '<div style="font:950 19px system-ui;display:flex;align-items:center;gap:10px;text-shadow:0 1px 4px rgba(0,0,0,.5);">' + icon + ' ' + label + '</div>' +
+      '<div style="font:800 12px system-ui;color:rgba(255,255,255,.9);margin-top:4px;text-shadow:0 1px 3px rgba(0,0,0,.5);">' + sub + '</div>';
+    b.appendChild(content);
     b.addEventListener('click', onClick);
     b.addEventListener('mouseenter', function () { this.style.transform = 'translateY(-2px)'; });
     b.addEventListener('mouseleave', function () { this.style.transform = 'none'; });
     return b;
   }
 
-  // secondary tile (practice / shop / achievements)
-  function secondaryTile(label, icon, onClick) {
+  // secondary tile (practice / shop / awards) — optional photo background
+  function secondaryTile(label, icon, onClick, bgImg) {
     var b = document.createElement('button');
-    b.style.cssText = 'flex:1;min-width:0;padding:14px 8px;border:1px solid rgba(238,248,216,.16);border-radius:14px;background:rgba(255,255,255,.05);color:#eef8d8;font:900 12px system-ui;cursor:pointer;';
-    b.innerHTML = '<div style="font-size:20px;">' + icon + '</div><div style="margin-top:4px;">' + label + '</div>';
+    b.style.cssText = 'position:relative;flex:1;min-width:0;padding:14px 8px;border:1px solid rgba(238,248,216,.16);border-radius:14px;background:rgba(255,255,255,.05);color:#eef8d8;font:900 12px system-ui;cursor:pointer;overflow:hidden;min-height:72px;';
+    if (bgImg) {
+      var bg = document.createElement('div');
+      bg.style.cssText = 'position:absolute;inset:0;background-image:url("' + bgImg + '");background-size:cover;background-position:center;opacity:0;transition:opacity .35s;';
+      var im = new Image(); im.onload = function () { bg.style.opacity = '1'; }; im.src = bgImg;
+      var scrim = document.createElement('div');
+      scrim.style.cssText = 'position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,18,10,.35),rgba(8,18,10,.72));';
+      b.appendChild(bg); b.appendChild(scrim);
+    }
+    var content = document.createElement('div');
+    content.style.cssText = 'position:relative;z-index:1;';
+    content.innerHTML = '<div style="font-size:20px;text-shadow:0 1px 3px rgba(0,0,0,.6);">' + icon + '</div><div style="margin-top:4px;text-shadow:0 1px 3px rgba(0,0,0,.6);">' + label + '</div>';
+    b.appendChild(content);
     b.addEventListener('click', onClick);
     return b;
   }
@@ -370,18 +392,18 @@
 
     // three primary mode buttons (banner pics can replace these later)
     shell.appendChild(modeButton('Quick Play', 'Jump into any course, hole by hole', '▶',
-      'linear-gradient(135deg,#3fae5e,#1f7a3f)', function () { MODE = 'quick'; renderCourseMenuV045(); }));
+      'linear-gradient(135deg,#3fae5e,#1f7a3f)', function () { MODE = 'quick'; renderCourseMenuV045(); }, 'mode-quick.png'));
     shell.appendChild(modeButton('Tournament', '18 holes vs a simulated field', '🏆',
-      'linear-gradient(135deg,#3a7d8c,#1d5773)', function () { MODE = 'tournament'; renderCourseMenuV045(); }));
+      'linear-gradient(135deg,#3a7d8c,#1d5773)', function () { MODE = 'tournament'; renderCourseMenuV045(); }, 'mode-tournament.png'));
     shell.appendChild(modeButton('Career', 'Climb the tours, build your fame', '📈',
-      'linear-gradient(135deg,#8a5a2a,#5a3a18)', function () { MODE = 'career'; renderCourseMenuV045(); }));
+      'linear-gradient(135deg,#8a5a2a,#5a3a18)', function () { MODE = 'career'; renderCourseMenuV045(); }, 'mode-career.png'));
 
     // secondary row: practice / shop / achievements
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:10px;margin-top:8px;';
-    row.appendChild(secondaryTile('Practice', '🏌️', function () { MODE = 'practice'; renderCourseMenuV045(); }));
-    row.appendChild(secondaryTile('Shop', '🛍️', function () { MODE = 'shop'; renderCourseMenuV045(); }));
-    row.appendChild(secondaryTile('Awards', '🏅', function () { MODE = 'awards'; renderCourseMenuV045(); }));
+    row.appendChild(secondaryTile('Practice', '🏌️', function () { MODE = 'practice'; renderCourseMenuV045(); }, 'tile-practice.png'));
+    row.appendChild(secondaryTile('Shop', '🛍️', function () { MODE = 'shop'; renderCourseMenuV045(); }, 'tile-shop.png'));
+    row.appendChild(secondaryTile('Awards', '🏅', function () { MODE = 'awards'; renderCourseMenuV045(); }, 'tile-awards.png'));
     shell.appendChild(row);
 
     // daily challenge sits on the home page too
