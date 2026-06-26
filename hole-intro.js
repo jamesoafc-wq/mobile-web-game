@@ -56,24 +56,36 @@
   };
 
   // ---- living-course décor during intro ----
-  function roundRectLocal(ctx, x, y, w, h, r) {
-    ctx.beginPath(); ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  // sprite loader for the flyover (top-down cart + sprinkler)
+  var introSprites = {};
+  function introSprite(url) {
+    if (introSprites[url]) return introSprites[url];
+    var rec = { img: new Image(), ready: false };
+    rec.img.onload = function () { rec.ready = true; };
+    rec.img.src = url + '?v3';
+    introSprites[url] = rec;
+    return rec;
   }
+  function roundRectLocal(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  // top-down cart sprite driving from tee toward green, facing its direction
   function drawCart(ctx, hole, p) {
     var tee = hole.start, cup = hole.cup;
     var t = Math.min(1, p / 0.85);
     var cx = lerp(tee.x + 26, cup.x + 22, t);
     var cy = lerp(tee.y - 10, cup.y + 30, t);
     var ang = Math.atan2(cup.y - tee.y, cup.x - tee.x);
+    var rec = introSprite('sprites/cart-top.png');
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang + Math.PI / 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(2, 3, 9, 6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#e8eef2'; roundRectLocal(ctx, -6, -9, 12, 18, 3); ctx.fill();
-    ctx.fillStyle = 'rgba(245,250,255,0.85)'; roundRectLocal(ctx, -6.5, -4, 13, 8, 2); ctx.fill();
-    ctx.fillStyle = '#2b2b2b';
-    ctx.fillRect(-7.5, -7, 2.5, 4); ctx.fillRect(5, -7, 2.5, 4);
-    ctx.fillRect(-7.5, 4, 2.5, 4); ctx.fillRect(5, 4, 2.5, 4);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(1, 2, 9, 12, 0, 0, Math.PI * 2); ctx.fill();
+    if (rec.ready) {
+      var w = 18, h = w * (rec.img.height / rec.img.width);
+      ctx.drawImage(rec.img, -w / 2, -h / 2, w, h);
+    } else {
+      ctx.fillStyle = '#e8eef2'; roundRectLocal(ctx, -6, -9, 12, 18, 3); ctx.fill();
+    }
     ctx.restore();
   }
   function pbounds(poly) {
@@ -81,20 +93,37 @@
     for (var i = 0; i < poly.length; i++) { var p = poly[i]; if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x; if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; }
     return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
   }
+  // sprinkler nozzle anchor as a fraction of the sprite (computed from the art:
+  // disc is horizontally centred, ~86% down the image).
+  var SPR_ANCHOR_X = 0.5, SPR_ANCHOR_Y = 0.864;
   function drawSprinklers(ctx, hole, p, timeMs) {
     if (!hole.fairway || hole.fairway.length < 3) return;
+    var rec = introSprite('sprites/sprinkler.png');
     var b = pbounds(hole.fairway);
     var seed = Math.floor(hole.cup.x + hole.cup.y);
     var n = 4;
     for (var i = 0; i < n; i++) {
       var sy = lerp(b.minY + 40, b.maxY - 40, i / (n - 1));
       var sx = (b.minX + b.maxX) / 2 + Math.sin(i * 2.1 + seed) * (b.maxX - b.minX) * 0.18;
-      ctx.fillStyle = 'rgba(60,70,60,0.8)'; ctx.beginPath(); ctx.arc(sx, sy, 1.6, 0, Math.PI * 2); ctx.fill();
-      var rot = timeMs * 0.004 + i * 1.3;
-      ctx.strokeStyle = 'rgba(190,225,255,0.5)'; ctx.lineWidth = 1;
-      for (var a = 0; a < 5; a++) { var aa = rot + a * 0.22; ctx.beginPath(); ctx.moveTo(sx, sy); var rr = 12 + Math.sin(timeMs * 0.01 + a) * 2; ctx.lineTo(sx + Math.cos(aa) * rr, sy + Math.sin(aa) * rr); ctx.stroke(); }
-      ctx.fillStyle = 'rgba(210,238,255,0.35)';
-      for (var d = 0; d < 6; d++) { var da = rot * 1.3 + d; ctx.beginPath(); ctx.arc(sx + Math.cos(da) * 10, sy + Math.sin(da) * 10, 0.9, 0, Math.PI * 2); ctx.fill(); }
+      if (rec.ready) {
+        var w = 30, h = w * (rec.img.height / rec.img.width);
+        var ax = w * SPR_ANCHOR_X, ay = h * SPR_ANCHOR_Y;
+        // rotate the spray around the NOZZLE point (sx,sy) so the water spins
+        var rot = timeMs * 0.0022 + i * 1.7;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(rot);
+        ctx.globalAlpha = 0.9;
+        // draw so the nozzle anchor sits exactly at the pivot (sx,sy)
+        ctx.drawImage(rec.img, -ax, -ay, w, h);
+        ctx.restore();
+      } else {
+        // fallback: code spray
+        var rot2 = timeMs * 0.004 + i * 1.3;
+        ctx.fillStyle = 'rgba(60,70,60,0.8)'; ctx.beginPath(); ctx.arc(sx, sy, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(190,225,255,0.5)'; ctx.lineWidth = 1;
+        for (var a = 0; a < 5; a++) { var aa = rot2 + a * 0.22; ctx.beginPath(); ctx.moveTo(sx, sy); var rr = 12 + Math.sin(timeMs * 0.01 + a) * 2; ctx.lineTo(sx + Math.cos(aa) * rr, sy + Math.sin(aa) * rr); ctx.stroke(); }
+      }
     }
   }
 
