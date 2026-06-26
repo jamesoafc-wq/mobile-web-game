@@ -21,13 +21,17 @@ resolveSkillShot = function resolveSkillShotWindNoSnapV063() {
   const power = shotInfo.power || 0.5;
   const cross = Math.sin(windAngle - shotAngle);
   const tail = Math.cos(windAngle - shotAngle);
-  const push = mph * (0.7 + power * 1.1);
+  // Career "Wind Read" skill reduces how much wind moves the ball (neutral 1.0
+  // outside career rounds).
+  const __wm = (typeof window !== 'undefined' && window.careerSkillMods) ? window.careerSkillMods().wind : 1;
+  const push = mph * (0.7 + power * 1.1) * __wm;
+  const __latMul = (1.5 + power * 1.1) * __wm;
 
   shot.windV063 = {
     driftX: Math.cos(windAngle) * push,
     driftY: Math.sin(windAngle) * push * 0.66 - Math.max(0, tail) * mph * 0.14,
-    lateralX: -Math.sin(shotAngle) * cross * mph * (1.5 + power * 1.1),
-    lateralY: Math.cos(shotAngle) * cross * mph * (1.5 + power * 1.1),
+    lateralX: -Math.sin(shotAngle) * cross * mph * __latMul,
+    lateralY: Math.cos(shotAngle) * cross * mph * __latMul,
     rollAngle: shotAngle + cross * mph * 0.006
   };
 };

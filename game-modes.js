@@ -25,17 +25,46 @@
     { id: 'masters', name: 'Masters Circuit', need: 30, reward: 'Legend status', icon: '🏆' }
   ];
   var SKILLS = [
-    { id: 'power', name: 'Power', desc: 'Longer carry', max: 5 },
+    { id: 'power', name: 'Power', desc: 'Longer carry (+ up to ~6%)', max: 5 },
     { id: 'accuracy', name: 'Accuracy', desc: 'Tighter shot dispersion', max: 5 },
-    { id: 'wind', name: 'Wind Read', desc: 'Less wind effect', max: 5 },
-    { id: 'putting', name: 'Putting', desc: 'Truer roll', max: 5 },
-    { id: 'nerve', name: 'Nerve', desc: 'Bigger sweet zone', max: 5 }
+    { id: 'wind', name: 'Wind Read', desc: 'Less wind effect on the ball', max: 5 },
+    { id: 'putting', name: 'Putting', desc: 'Truer roll, less misread', max: 5 },
+    { id: 'nerve', name: 'Nerve', desc: 'Wider strike sweet zone', max: 5 }
   ];
   function career() {
     if (!data.career) data.career = { fame: 0, tourIdx: 0, wins: 0, events: 0, skillPts: 0, skills: {}, seasonEvent: 0 };
     return data.career;
   }
   function fameToStars(f) { return Math.floor(f); }
+
+  // ---- CAREER SKILL → PHYSICS MODIFIERS -------------------------------------
+  // Career rounds start slightly BELOW the Quick Play baseline and the skill
+  // tree claws performance back: ~level 3 ≈ Quick Play, level 5 modestly above.
+  // Quick Play / Tournament / Practice are unaffected (returns all-1.0 there).
+  // lerp01(level) maps a 0..5 skill to a 0..1 progress for interpolation.
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function careerSkillMods() {
+    var neutral = { carry: 1, disp: 1, wind: 1, putt: 1, sweet: 1, active: false };
+    try {
+      if (!window.__careerRound) return neutral;
+      var sk = (career().skills) || {};
+      function lv(id) { return Math.max(0, Math.min(5, sk[id] || 0)) / 5; }
+      return {
+        active: true,
+        // Power: carry ×0.90 → ×1.06
+        carry: lerp(0.90, 1.06, lv('power')),
+        // Accuracy: dispersion ×1.18 (looser) → ×0.88 (tighter). Lower = better.
+        disp:  lerp(1.18, 0.88, lv('accuracy')),
+        // Wind Read: wind influence ×1.15 → ×0.85
+        wind:  lerp(1.15, 0.85, lv('wind')),
+        // Putting: putt error ×1.15 → ×0.82
+        putt:  lerp(1.15, 0.82, lv('putting')),
+        // Nerve: strike sweet-zone width ×0.86 (narrower) → ×1.14 (wider)
+        sweet: lerp(0.86, 1.14, lv('nerve'))
+      };
+    } catch (e) { return neutral; }
+  }
+  window.careerSkillMods = careerSkillMods;
 
   // ---------- TOURNAMENT state ----------
   var tournament = null;   // { courseId, hole, scores:[], par:[], total, ai:[] }
@@ -60,6 +89,7 @@
 
   function startTournament(course) {
     window.__forceSpectators = true;   // crowds at every tournament venue
+    window.__careerRound = false;       // tournaments use baseline physics
     if (typeof applyCourseV045 === 'function') applyCourseV045(course);
     if (typeof resetRoundHoleV035 === 'function') resetRoundHoleV035(0);
     tournament = { courseId: course.id, courseName: course.name, hole: 0, scores: [], started: true, isCareer: false, ai: makeAIField(), myToPar: 0 };
@@ -175,6 +205,7 @@
     if (!playable.length) playable = COURSES_V045.filter(function (cc) { return cc.holes && cc.holes.length; });
     var course = playable[c.seasonEvent % playable.length];
     window.__forceSpectators = true;   // crowds at career events too
+    window.__careerRound = true;        // enable career skill modifiers this round
     if (typeof applyCourseV045 === 'function') applyCourseV045(course);
     if (typeof resetRoundHoleV035 === 'function') resetRoundHoleV035(0);
     tournament = { courseId: course.id, courseName: course.name, hole: 0, scores: [], started: true, isCareer: true };
@@ -436,9 +467,9 @@
   // ---- wrap the menu render: route by MODE ----
   var beforeRender = renderCourseMenuV045;
   renderCourseMenuV045 = function renderCourseMenuModes() {
-    if (MODE === 'home') { window.__forceSpectators = false; homePage(); return; }
+    if (MODE === 'home') { window.__forceSpectators = false; window.__careerRound = false; homePage(); return; }
     if (MODE === 'quick') {
-      window.__forceSpectators = false;
+      window.__forceSpectators = false; window.__careerRound = false;
       beforeRender.apply(this, arguments);
       try {
         var shell = courseMenuV045 && courseMenuV045.firstElementChild;

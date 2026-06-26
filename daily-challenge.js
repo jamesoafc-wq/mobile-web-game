@@ -68,6 +68,7 @@
           st[dailyActive.key] = { toPar: toPar, strokes: strokes, par: par };
           st.streak = streak; st.lastKey = dailyActive.key;
           save(st);
+          if (window.Achievements) Achievements.check('dailyStreak', { streak: streak });
         }
         dailyActive = null;
       }

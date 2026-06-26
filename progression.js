@@ -154,11 +154,19 @@
               // achievements
               if (window.Achievements) {
                 var wmph = (typeof windStateV057 !== 'undefined' && windStateV057) ? windStateV057.mph : 0;
-                Achievements.check('holeOut', { toPar: toPar, strokes: strokes, par: par, windMph: wmph });
+                var fromSand = (window.__lastShotLie === 'sand');
+                var puttDist = window.__lastShotWasPutt ? (window.__lastShotDist || 0) : 0;
+                Achievements.check('holeOut', { toPar: toPar, strokes: strokes, par: par, windMph: wmph, fromSand: fromSand, puttDist: puttDist });
                 // all-stars-on-course check
                 if (Progress.courseStars && Progress.courseStarsMax && Progress.courseStars(cid) >= Progress.courseStarsMax()) {
                   Achievements.check('courseAllStars', {});
                 }
+                // player level milestone
+                if (Progress.level) Achievements.check('level', { level: Progress.level().level });
+                // unique courses played
+                if (!state.coursesPlayed) state.coursesPlayed = {};
+                state.coursesPlayed[cid] = true;
+                Achievements.check('coursesPlayed', { count: Object.keys(state.coursesPlayed).length });
               }
               save();
             }

@@ -217,14 +217,17 @@ function startSkillShot(pointer) {
     return;
   }
   const difficulty = clamp((clubDifficulty[selectedClub] ?? 0.5) + (surfaceDifficulty[lie] ?? 0.2) + power * 0.18, 0.08, 1);
+  const __csm = (typeof window !== 'undefined' && window.careerSkillMods) ? window.careerSkillMods() : null;
+  const __carryMul = __csm ? __csm.carry : 1;
+  const __sweetMul = __csm ? __csm.sweet : 1;
   pendingShot = {
     power,
     baseAngle: Math.atan2(pullY, pullX),
     lie,
     clubKey: selectedClub,
-    maxCarry,
+    maxCarry: maxCarry * __carryMul,
     difficulty,
-    sweetWidth: clamp(0.34 - difficulty * 0.24, 0.07, 0.31),
+    sweetWidth: clamp((0.34 - difficulty * 0.24) * __sweetMul, 0.06, 0.34),
     startedAt: performance.now(),
     speed: 0.72 + difficulty * 1.05
   };
@@ -315,12 +318,15 @@ function resolvePutt(shot, marker) {
   }
 
   const random = (Math.random() + Math.random()) / 2 - 0.5;
-  const angle = shot.baseAngle + radians(angleOffsetDeg + random * 0.45);
+  const __csmP = (typeof window !== 'undefined' && window.careerSkillMods) ? window.careerSkillMods() : null;
+  const __puttMul = __csmP ? __csmP.putt : 1;
+  const angle = shot.baseAngle + radians((angleOffsetDeg + random * 0.45) * __puttMul);
   const rollYards = getPuttRollYards(shot.lie, shot.power, contactMultiplier);
   const speed = getPuttLaunchSpeed(shot.lie, rollYards);
 
   skillFeedback = { label, zone, startedAt: performance.now() };
   strokes += 1;
+  try { window.__lastShotLie = shot.lie; window.__lastShotDist = rollYards; window.__lastShotWasPutt = true; } catch (e) {}
   lastSafe = { x: ball.x, y: ball.y };
 
   if (speed <= 0.006) {
@@ -345,7 +351,9 @@ function resolveFullShot(shot, marker) {
   const shape = getFullShotShapeFromStrike(shot, marker);
   const random = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
   const lieFactor = surfaceDifficulty[shot.lie] ?? 0.2;
-  const randomOffset = random * club.accuracy * (0.25 + shot.power * 0.55) * (0.65 + lieFactor);
+  const __csmF = (typeof window !== 'undefined' && window.careerSkillMods) ? window.careerSkillMods() : null;
+  const __dispMul = __csmF ? __csmF.disp : 1;
+  const randomOffset = random * club.accuracy * __dispMul * (0.25 + shot.power * 0.55) * (0.65 + lieFactor);
   const baseAngle = shot.baseAngle + radians(shape.startLineDeg + randomOffset);
   const carryYards = shot.maxCarry * shot.power * shape.carryMultiplier;
   const carryPixels = carryYards / YARDS_PER_PIXEL;
@@ -362,6 +370,7 @@ function resolveFullShot(shot, marker) {
 
   skillFeedback = { label: shape.label, zone: shape.zone, startedAt: performance.now() };
   strokes += 1;
+  try { window.__lastShotLie = shot.lie; window.__lastShotDist = carryYards; window.__lastShotWasPutt = false; } catch (e) {}
   lastSafe = { x: startX, y: startY };
   ball.moving = true;
   ball.flight = {
