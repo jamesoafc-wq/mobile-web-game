@@ -11,6 +11,7 @@
   if (typeof renderCourseMenuV045 !== 'function' || typeof COURSES_V045 === 'undefined') return;
 
   var MODE = 'home';   // 'home' | 'quick' | 'tournament' | 'career'
+  var careerView = 'start';   // 'start' (new/continue picker) | 'dash' (dashboard)
   var LS = 'golfModes_v1';
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch (e) { return {}; } }
   function save(s) { try { localStorage.setItem(LS, JSON.stringify(s)); } catch (e) {} }
@@ -32,9 +33,15 @@
     { id: 'nerve', name: 'Nerve', desc: 'Wider strike sweet zone', max: 5 }
   ];
   function career() {
-    if (!data.career) data.career = { fame: 0, tourIdx: 0, wins: 0, events: 0, skillPts: 0, skills: {}, seasonEvent: 0 };
+    if (!data.career) data.career = { fame: 0, tourIdx: 0, wins: 0, events: 0, skillPts: 0, skills: {}, seasonEvent: 0, difficulty: 'amateur', started: false };
     return data.career;
   }
+  function newCareer(difficulty) {
+    data.career = { fame: 0, tourIdx: 0, wins: 0, events: 0, skillPts: 0, skills: {}, seasonEvent: 0, difficulty: difficulty || 'amateur', started: true };
+    save(data);
+    return data.career;
+  }
+  function hasCareer() { return !!(data.career && data.career.started); }
   function fameToStars(f) { return Math.floor(f); }
 
   // ---- CAREER SKILL → PHYSICS MODIFIERS -------------------------------------
@@ -206,9 +213,11 @@
     var course = playable[c.seasonEvent % playable.length];
     window.__forceSpectators = true;   // crowds at career events too
     window.__careerRound = true;        // enable career skill modifiers this round
+    // career uses its OWN saved difficulty for the AI field (set at New Career)
+    TOUR_DIFF = c.difficulty || 'amateur';
     if (typeof applyCourseV045 === 'function') applyCourseV045(course);
     if (typeof resetRoundHoleV035 === 'function') resetRoundHoleV035(0);
-    tournament = { courseId: course.id, courseName: course.name, hole: 0, scores: [], started: true, isCareer: true };
+    tournament = { courseId: course.id, courseName: course.name, hole: 0, scores: [], started: true, isCareer: true, ai: makeAIField(), myToPar: 0 };
     window.__activeTournament = tournament;
     if (typeof hideCourseMenuV045 === 'function') hideCourseMenuV045();
     if (typeof updateHud === 'function') updateHud();
@@ -286,7 +295,46 @@
     });
   }
 
+  function careerStartScreen(shell) {
+    var c = career();
+    var intro = document.createElement('div');
+    intro.style.cssText = 'margin-bottom:16px;padding:18px;border-radius:18px;background:linear-gradient(150deg,#8a5a2a,#5a3a18);border:1px solid rgba(255,226,122,.35);color:#fff;';
+    intro.innerHTML = '<div style="font:950 19px system-ui;">📈 Career Mode</div>' +
+      '<div style="font:800 12px system-ui;color:rgba(255,255,255,.85);margin-top:6px;">Climb the tours, earn fame and skill points, and beat a simulated field at each event. Pick a difficulty for your opponents — it sticks for the whole career.</div>';
+    shell.appendChild(intro);
+
+    // continue existing career, if any
+    if (hasCareer()) {
+      var cont = document.createElement('button');
+      cont.innerHTML = '▶ Continue Career <span style="font-weight:700;opacity:.8;">· ' + (DIFF_CFG[c.difficulty] ? DIFF_CFG[c.difficulty].label : 'Amateur') + ' · ' + c.wins + ' wins</span>';
+      cont.style.cssText = 'width:100%;margin-bottom:16px;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#ffe27a,#ffb347);color:#0c2a14;font:950 14px system-ui;cursor:pointer;';
+      cont.addEventListener('click', function () { c.started = true; save(data); careerView = 'dash'; renderCourseMenuV045(); });
+      shell.appendChild(cont);
+    }
+
+    // new career w/ difficulty
+    var nc = document.createElement('div');
+    nc.style.cssText = 'padding:16px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(238,248,216,.16);';
+    nc.innerHTML = '<div style="font:950 14px system-ui;color:#eef8d8;margin-bottom:4px;">' + (hasCareer() ? 'Start a New Career' : 'New Career') + '</div>' +
+      '<div style="font:750 11px system-ui;color:rgba(232,246,222,.6);margin-bottom:12px;">Choose opponent difficulty:</div>';
+    ['amateur', 'pro', 'championship'].forEach(function (d) {
+      var cfg = DIFF_CFG[d];
+      var btn = document.createElement('button');
+      btn.style.cssText = 'width:100%;text-align:left;margin-bottom:8px;padding:12px 14px;border:1px solid rgba(255,226,122,.25);border-radius:12px;background:rgba(0,0,0,.2);color:#eef8d8;cursor:pointer;';
+      var blurb = d === 'amateur' ? 'Forgiving field — good for learning the tours' : (d === 'pro' ? 'Sharper field, scores around par' : 'Elite field, regularly under par');
+      btn.innerHTML = '<div style="font:950 14px system-ui;color:#ffe27a;">' + cfg.label + '</div><div style="font:750 11px system-ui;color:rgba(232,246,222,.7);margin-top:2px;">' + blurb + '</div>';
+      btn.addEventListener('click', function () {
+        if (hasCareer() && !window.confirm('Start a new career? This overwrites your current career progress.')) return;
+        newCareer(d); careerView = 'dash'; renderCourseMenuV045();
+      });
+      nc.appendChild(btn);
+    });
+    shell.appendChild(nc);
+  }
+
   function careerContent(shell) {
+    // gate: show the start screen until the player picks/continues a career
+    if (!hasCareer() || careerView === 'start') { careerStartScreen(shell); return; }
     var c = career();
     var tour = TOURS[c.tourIdx];
     var box = document.createElement('div');
@@ -295,12 +343,17 @@
       '<div style="display:flex;justify-content:space-between;align-items:center;">' +
       '<div style="font:950 17px system-ui;">' + tour.icon + ' ' + tour.name + '</div>' +
       '<div style="font:900 13px system-ui;color:#ffe27a;">⭐ ' + c.fame + ' fame</div></div>' +
-      '<div style="font:800 12px system-ui;color:rgba(255,255,255,.8);margin-top:6px;">Wins: ' + c.wins + ' · Events: ' + c.events + ' · Season event ' + ((c.seasonEvent % 6) + 1) + '/6</div>';
+      '<div style="font:800 12px system-ui;color:rgba(255,255,255,.8);margin-top:6px;">' + (DIFF_CFG[c.difficulty] ? DIFF_CFG[c.difficulty].label : 'Amateur') + ' · Wins: ' + c.wins + ' · Events: ' + c.events + ' · Season event ' + ((c.seasonEvent % 6) + 1) + '/6</div>';
     var play = document.createElement('button');
     play.textContent = '▶ Play next event';
     play.style.cssText = 'margin-top:12px;width:100%;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#ffe27a,#ffb347);color:#0c2a14;font:950 14px system-ui;cursor:pointer;';
     play.addEventListener('click', startCareerEvent);
     box.appendChild(play);
+    var manage = document.createElement('button');
+    manage.textContent = 'Careers / difficulty';
+    manage.style.cssText = 'margin-top:8px;width:100%;padding:9px;border:1px solid rgba(255,255,255,.2);border-radius:10px;background:transparent;color:rgba(255,255,255,.85);font:800 11px system-ui;cursor:pointer;';
+    manage.addEventListener('click', function () { careerView = 'start'; renderCourseMenuV045(); });
+    box.appendChild(manage);
     shell.appendChild(box);
 
     // tour ladder
@@ -427,7 +480,7 @@
     shell.appendChild(modeButton('Tournament', '18 holes vs a simulated field', '🏆',
       'linear-gradient(135deg,#3a7d8c,#1d5773)', function () { MODE = 'tournament'; renderCourseMenuV045(); }, 'mode-tournament.png'));
     shell.appendChild(modeButton('Career', 'Climb the tours, build your fame', '📈',
-      'linear-gradient(135deg,#8a5a2a,#5a3a18)', function () { MODE = 'career'; renderCourseMenuV045(); }, 'mode-career.png'));
+      'linear-gradient(135deg,#8a5a2a,#5a3a18)', function () { MODE = 'career'; careerView = 'start'; renderCourseMenuV045(); }, 'mode-career.png'));
 
     // secondary row: practice / shop / achievements
     var row = document.createElement('div');
@@ -444,6 +497,8 @@
         shell.appendChild(d);
       } catch (e) {}
     }
+    // audio / sound settings
+    try { if (window.GolfAudio && GolfAudio.buildSettingsPanel) { var ap = GolfAudio.buildSettingsPanel(); ap.style.marginTop = '16px'; shell.appendChild(ap); } } catch (e) {}
     courseMenuV045.appendChild(shell);
     // let daily-challenge inject its card
     try { if (typeof injectDailyExternal === 'function') injectDailyExternal(); } catch (e) {}
