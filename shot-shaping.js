@@ -1,94 +1,101 @@
 // ============================================================================
-// shot-shaping.js  ·  intentional draw / fade + reworked natural flight curve
+// shot-shaping.js  ·  on-bar draw/fade control + reworked progressive flight
 // ----------------------------------------------------------------------------
-// Replaces the old symmetric "bulge" curve with a PROGRESSIVE, asymmetric shape
-// that starts ~straight, bends increasingly through the flight, and finishes
-// offline — like a real worked shot. Intentional shape (player-selected) and
-// accidental shape (strike-meter mishit) combine, and both blend with wind in a
-// single late-building lateral so the whole flight reads as one natural curve.
+// Shape is chosen ON the strike meter: Draw / Straight / Fade segments sit on
+// the strike panel, and picking one OFFSETS the sweet zone left/right. Striking
+// the offset zone cleanly delivers that shape; the curve itself is produced by
+// engine-core's getFullShotShapeFromStrike (intended offset + accidental miss),
+// so there is a single source of curve — no double counting.
 //
-// Loads AFTER wind-no-snap-v063.js so its updateFlight wrapper sits on top.
-// All wrapped in try/catch; "Straight" + no mishit reproduces prior behaviour.
+// This module owns: (1) the shape state + on-bar selector hit-testing & drawing,
+// and (2) the reworked flight integrator (progressive, asymmetric curve that
+// finishes offline, blended naturally with wind). Loads AFTER the v065 flight
+// overlay so its updateFlight sits on top.
 // ============================================================================
 
 (function () {
   'use strict';
 
-  // -1 = draw (curves left), 0 = straight, +1 = fade (curves right) for a RH golfer
+  // -1 = draw (left), 0 = straight, +1 = fade (right) — RH golfer convention
   var SHAPE = { value: 0 };
-  var LABELS = { '-1': 'Draw', '0': 'Straight', '1': 'Fade' };
-
   function clampN(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
-  // ---- selector UI ----------------------------------------------------------
-  function buildBar() {
-    var host = document.getElementById('shotShapeBar');
-    if (!host) return;
-    host.innerHTML = '';
-    host.style.cssText = 'display:flex;gap:6px;justify-content:center;margin:8px auto 0;max-width:320px;';
-    [['-1', '↩ Draw'], ['0', '• Straight'], ['1', 'Fade ↪']].forEach(function (opt) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.dataset.shape = opt[0];
-      b.dataset.noTick = '1';
-      b.textContent = opt[1];
-      styleSeg(b, String(SHAPE.value) === opt[0]);
-      b.addEventListener('click', function () {
-        SHAPE.value = parseInt(opt[0], 10);
-        refresh();
-        try { if (window.GolfAudio) GolfAudio.play('select'); } catch (e) {}
-      });
-      host.appendChild(b);
-    });
+  // segment rects on the strike panel (computed each draw from the panel rect)
+  var segRects = [];
+
+  // ---- draw the on-bar shape selector + hit testing -------------------------
+  // We hook the canvas draw to paint the three segments above the meter, and
+  // hook pointerdown (capture) to catch taps on them before the strike-tap.
+  function drawShapeSegments() {
+    try {
+      if (typeof pendingShot === 'undefined' || !pendingShot) { segRects = []; return; }
+      if (typeof getSkillPanelRect !== 'function' || typeof ctx === 'undefined') return;
+      var panel = getSkillPanelRect();
+      var labels = [['-1', 'Draw'], ['0', 'Straight'], ['1', 'Fade']];
+      var gap = 6, segW = (panel.w - 44 - gap * 2) / 3, segH = 22;
+      var y = panel.y + panel.h - segH - 8;
+      var x0 = panel.x + 22;
+      segRects = [];
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (var i = 0; i < 3; i++) {
+        var x = x0 + i * (segW + gap);
+        var active = String(SHAPE.value) === labels[i][0];
+        ctx.fillStyle = active ? '#3fae5e' : 'rgba(255,255,255,0.08)';
+        roundRectLocal(ctx, x, y, segW, segH, 7); ctx.fill();
+        if (active) { ctx.strokeStyle = 'rgba(255,226,122,0.8)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+        ctx.fillStyle = active ? '#fff' : 'rgba(238,248,216,0.8)';
+        ctx.font = '800 11px system-ui';
+        ctx.fillText(labels[i][1], x + segW / 2, y + segH / 2 + 0.5);
+        segRects.push({ x: x, y: y, w: segW, h: segH, val: parseInt(labels[i][0], 10) });
+      }
+      ctx.restore();
+    } catch (e) {}
   }
-  function styleSeg(b, active) {
-    b.style.cssText = 'flex:1;padding:9px 4px;border-radius:10px;cursor:pointer;font:900 12px system-ui;' +
-      'border:1px solid ' + (active ? 'rgba(255,226,122,.7)' : 'rgba(255,255,255,.16)') + ';' +
-      'background:' + (active ? 'linear-gradient(135deg,#3fae5e,#1f7a3f)' : 'rgba(255,255,255,.06)') + ';' +
-      'color:' + (active ? '#fff' : 'rgba(238,248,216,.8)') + ';transition:all .15s;';
-  }
-  function refresh() {
-    var host = document.getElementById('shotShapeBar');
-    if (!host) return;
-    [].forEach.call(host.querySelectorAll('button'), function (b) {
-      styleSeg(b, String(SHAPE.value) === b.dataset.shape);
-    });
+  function roundRectLocal(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
   }
 
-  // ---- inject the intended shape into the flight object ---------------------
-  // We wrap resolveFullShot: after the base engine builds ball.flight, we attach
-  // a shapeCurve target (signed pixels of intended finishing offset) plus a
-  // small opposite "start bias" so a draw starts right and works back left.
-  if (typeof resolveFullShot === 'function') {
-    var _rfs = resolveFullShot;
-    resolveFullShot = function (shot, marker) {
-      var r = _rfs.apply(this, arguments);
-      try {
-        if (ball && ball.flight) {
-          var club = (typeof clubs !== 'undefined') ? clubs[shot.clubKey] : null;
-          // intended shape: scales with power and club (less on short clubs)
-          var clubScale = club ? clampN((club.flightHeight || 0.5) + 0.25, 0.4, 1.1) : 0.8;
-          var intended = SHAPE.value * (26 + (shot.power || 0.6) * 30) * clubScale;
-          // career Accuracy makes intended shape more reliable (handled via the
-          // accidental term already); here we just store the intent.
-          ball.flight.shapeCurve = intended;
-          ball.flight.shapeStartBias = -SHAPE.value * 0.45; // degrees, opposite lean
-          // fold a tiny opposite start-line lean into the launch angle so the
-          // ball works back toward target (only for an intentional shape)
-          if (SHAPE.value !== 0 && typeof radians === 'function') {
-            ball.flight.angle += radians(ball.flight.shapeStartBias);
-          }
-        }
-      } catch (e) {}
+  // paint segments right after the rest of the frame
+  if (typeof draw === 'function') {
+    var _draw = draw;
+    draw = function shotShapeDraw() {
+      var r = _draw.apply(this, arguments);
+      drawShapeSegments();
       return r;
     };
   }
 
+  // intercept taps on the segments BEFORE the strike-tap fires
+  if (typeof canvas !== 'undefined' && canvas) {
+    canvas.addEventListener('pointerdown', function (event) {
+      try {
+        if (typeof pendingShot === 'undefined' || !pendingShot || !segRects.length) return;
+        var rect = canvas.getBoundingClientRect();
+        var sx = (event.clientX - rect.left) * (canvas.width / rect.width);
+        var sy = (event.clientY - rect.top) * (canvas.height / rect.height);
+        for (var i = 0; i < segRects.length; i++) {
+          var s = segRects[i];
+          if (sx >= s.x && sx <= s.x + s.w && sy >= s.y && sy <= s.y + s.h) {
+            SHAPE.value = s.val;
+            // live-update the active pending shot so the sweet zone shifts now
+            pendingShot.shapeCenter = 0.5 + s.val * 0.16;
+            pendingShot.shapeValue = s.val;
+            try { if (window.GolfAudio) GolfAudio.play('select'); } catch (e) {}
+            event.preventDefault();
+            event.stopImmediatePropagation();   // don't let this tap strike the ball
+            return;
+          }
+        }
+      } catch (e) {}
+    }, true);   // capture phase: runs before engine-core's strike handler
+  }
+
   // ---- reworked flight integrator (progressive curve + natural wind blend) --
-  // Supersedes flight-curve-overlay-v065's updateFlight (the true active one).
-  // Preserves its wind model, driver-trail tracking and wind-overlay refresh,
-  // but swaps the curve for a progressive intended+accidental shape that ends
-  // offline, blended with wind into one natural arc.
+  // Supersedes flight-curve-overlay-v065's updateFlight. Curve comes solely from
+  // shot.finalCurvePixels (intended shape + accidental miss, already combined by
+  // getFullShotShapeFromStrike) rendered progressively so it ends offline.
   if (typeof updateFlight === 'function') {
     var _clamp = (typeof clamp === 'function') ? clamp : clampN;
     var _lerp = (typeof lerp === 'function') ? lerp : function (a, b, t) { return a + (b - a) * t; };
@@ -103,7 +110,7 @@
       var ease = 1 - Math.pow(1 - t, 2);
       var arc = Math.sin(t * Math.PI);
 
-      // integrate along the STRAIGHT base line so we can add curve progressively
+      // integrate along the STRAIGHT base line, add curve progressively
       var ex = (typeof shot.baseEndX === 'number') ? shot.baseEndX : shot.endX;
       var ey = (typeof shot.baseEndY === 'number') ? shot.baseEndY : shot.endY;
       var baseX = _lerp(shot.startX, ex, ease);
@@ -111,12 +118,11 @@
       var perpX = -Math.sin(shot.angle);
       var perpY = Math.cos(shot.angle);
 
-      // accidental curve (strike mishit) + intended shape (player draw/fade)
-      var accidental = (shot.finalCurvePixels || 0);
-      var intended = (shot.shapeCurve || 0);
-      // progressive: starts ~straight, accelerates, finishes offline (real shape)
+      // total curve (intended + accidental), rendered progressively: starts ~
+      // straight, accelerates, finishes offline like a real worked shot.
+      var curve = (shot.finalCurvePixels || 0);
       var shapeProg = Math.pow(t, 1.7);
-      var lateralShape = (intended + accidental) * shapeProg;
+      var lateralShape = curve * shapeProg;
 
       // wind (v065 model): drift + air curve, building late
       var windX = 0, windY = 0, windCurveX = 0, windCurveY = 0;
@@ -137,8 +143,7 @@
       if (trackingDriver && typeof driverTrailV038 !== 'undefined') driverTrailV038.push({ x: ball.x, y: ball.y, t: performance.now() });
 
       if (t >= 1) {
-        var totalCurve = intended + accidental;
-        var rollAngle = (shot.windV063 ? shot.windV063.rollAngle : shot.angle) + totalCurve * 0.0017;
+        var rollAngle = (shot.windV063 ? shot.windV063.rollAngle : shot.angle) + curve * 0.0017;
         ball.flight = null;
         ball.visualScale = 1;
         if (trackingDriver) {
@@ -149,12 +154,6 @@
       }
     };
   }
-
-  // rebuild the selector whenever a hole resets (the controls persist, but we
-  // refresh state) and once on load.
-  function init() { buildBar(); refresh(); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
 
   window.ShotShape = SHAPE;
   window.shotShapingLoaded = true;

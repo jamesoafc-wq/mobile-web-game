@@ -229,7 +229,11 @@ function startSkillShot(pointer) {
     difficulty,
     sweetWidth: clamp((0.34 - difficulty * 0.24) * __sweetMul, 0.06, 0.34),
     startedAt: performance.now(),
-    speed: 0.72 + difficulty * 1.05
+    speed: 0.72 + difficulty * 1.05,
+    // shapeCenter: where the sweet zone sits on the 0..1 bar. 0.5 = straight;
+    // shifted left for a draw, right for a fade (set from the on-bar selector).
+    shapeCenter: (typeof window !== 'undefined' && window.ShotShape) ? (0.5 + window.ShotShape.value * 0.16) : 0.5,
+    shapeValue: (typeof window !== 'undefined' && window.ShotShape) ? window.ShotShape.value : 0
   };
   message = `${clubs[selectedClub].short} from ${surfaceLabels[lie]}: tap the strike marker in the green zone.`;
   updateHud();
@@ -247,32 +251,42 @@ function getFullShotShapeFromStrike(shot, marker) {
   const halfSweet = shot.sweetWidth / 2;
   const middleWidth = clamp(shot.sweetWidth + 0.28 - shot.difficulty * 0.06, shot.sweetWidth + 0.14, 0.48);
   const halfMiddle = middleWidth / 2;
-  const error = marker - 0.5;
+  // the sweet zone is centred at shot.shapeCenter (offset for draw/fade), so the
+  // strike error is measured from THERE, not the middle of the bar.
+  const center = (typeof shot.shapeCenter === 'number') ? shot.shapeCenter : 0.5;
+  const shapeVal = shot.shapeValue || 0;   // -1 draw, 0 straight, +1 fade
+  // INTENDED curve: a clean strike of an offset zone produces the chosen shape.
+  // (negative pixels = left = draw, positive = right = fade)
+  const intendedCurve = shapeVal * (28 + shot.difficulty * 10);
+  const error = marker - center;
   const absError = Math.abs(error);
   const side = Math.sign(error) || 1;
 
   if (absError <= halfSweet) {
-    return { zone: 'sweet', label: 'Perfect strike', carryMultiplier: 1, startLineDeg: 0, finalCurvePixels: side * shot.difficulty * 1.5 };
+    // clean strike — deliver the intended shape, only faint extra movement
+    var lbl = shapeVal < 0 ? 'Pure draw' : (shapeVal > 0 ? 'Pure fade' : 'Perfect strike');
+    return { zone: 'sweet', label: lbl, carryMultiplier: 1, startLineDeg: -shapeVal * 0.5, finalCurvePixels: intendedCurve + side * shot.difficulty * 1.2 };
   }
   if (absError <= halfMiddle) {
     const miss = clamp((absError - halfSweet) / Math.max(0.01, halfMiddle - halfSweet), 0, 1);
     const movingRight = side > 0;
+    // accidental curve from missing the (offset) zone, ADDED to the intent
     return {
       zone: 'middle',
-      label: movingRight ? 'Gentle fade' : 'Gentle draw',
+      label: movingRight ? 'Slight fade miss' : 'Slight draw miss',
       carryMultiplier: clamp(0.99 - miss * 0.07, 0.9, 0.99),
-      startLineDeg: side * (0.8 + miss * 1.5),
-      finalCurvePixels: side * (6 + miss * 18 + shot.difficulty * 6)
+      startLineDeg: -shapeVal * 0.5 + side * (0.8 + miss * 1.5),
+      finalCurvePixels: intendedCurve + side * (6 + miss * 18 + shot.difficulty * 6)
     };
   }
   const miss = clamp((absError - halfMiddle) / Math.max(0.01, 0.5 - halfMiddle), 0, 1);
   const movingRight = side > 0;
   return {
     zone: 'bad',
-    label: miss > 0.55 ? (movingRight ? 'Big slice' : 'Big hook') : (movingRight ? 'Leaky fade' : 'Strong draw'),
+    label: miss > 0.55 ? (movingRight ? 'Big slice' : 'Big hook') : (movingRight ? 'Leaky fade' : 'Pull'),
     carryMultiplier: clamp(0.9 - miss * (0.14 + shot.difficulty * 0.16), 0.58, 0.88),
-    startLineDeg: side * (1.4 + miss * 3.6 + shot.difficulty * 1.4),
-    finalCurvePixels: side * (18 + miss * 58 + shot.difficulty * 28)
+    startLineDeg: -shapeVal * 0.5 + side * (1.4 + miss * 3.6 + shot.difficulty * 1.4),
+    finalCurvePixels: intendedCurve + side * (18 + miss * 58 + shot.difficulty * 28)
   };
 }
 
@@ -683,9 +697,9 @@ function drawAimLine() {
 
 function getSkillPanelRect() {
   const panelW = Math.min(350, canvas.width - 24);
-  const panelH = 94;
+  const panelH = 118;   // taller: meter + on-bar Draw/Straight/Fade segments
   const panelX = (canvas.width - panelW) / 2;
-  const panelY = Math.max(84, canvas.height - 198);
+  const panelY = Math.max(84, canvas.height - 220);
   return { x: panelX, y: panelY, w: panelW, h: panelH };
 }
 function getStrikeCancelButton() {
@@ -717,48 +731,66 @@ function drawSkillBar() {
   const marker = getSkillMarkerPosition();
   const panel = getSkillPanelRect();
   const barX = panel.x + 22;
-  const barY = panel.y + 38;
+  const barY = panel.y + 40;
   const barW = panel.w - 44;
-  const barH = 16;
+  const barH = 18;
+  const center = (typeof pendingShot.shapeCenter === 'number') ? pendingShot.shapeCenter : 0.5;
+  const shapeVal = pendingShot.shapeValue || 0;
   const middleWidth = clamp(pendingShot.sweetWidth + 0.28 - pendingShot.difficulty * 0.06, pendingShot.sweetWidth + 0.14, 0.48);
-  const middleX = barX + (0.5 - middleWidth / 2) * barW;
-  const sweetX = barX + (0.5 - pendingShot.sweetWidth / 2) * barW;
+  const sweetC = clamp(center, pendingShot.sweetWidth / 2, 1 - pendingShot.sweetWidth / 2);
+  const middleX = barX + clamp(sweetC - middleWidth / 2, 0, 1 - middleWidth) * barW;
+  const sweetX = barX + (sweetC - pendingShot.sweetWidth / 2) * barW;
   const markerX = barX + marker * barW;
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = 'rgba(7, 13, 7, 0.93)';
+
+  ctx.fillStyle = 'rgba(7, 13, 7, 0.94)';
   roundRect(ctx, panel.x, panel.y, panel.w, panel.h, 18);
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.14)';
   ctx.stroke();
 
+  const shapeName = shapeVal < 0 ? 'Draw' : (shapeVal > 0 ? 'Fade' : 'Straight');
   ctx.textAlign = 'center';
   ctx.fillStyle = '#fff';
   ctx.font = '800 13px system-ui';
-  ctx.fillText(`${clubs[pendingShot.clubKey].short} from ${surfaceLabels[pendingShot.lie]} · tap green`, canvas.width / 2, panel.y + 21);
+  ctx.fillText(`${clubs[pendingShot.clubKey].short} · ${shapeName} · tap the green`, canvas.width / 2, panel.y + 22);
 
-  ctx.fillStyle = 'rgba(255,92,92,0.58)';
-  roundRect(ctx, barX, barY, barW, barH, 8);
+  ctx.fillStyle = 'rgba(255,92,92,0.5)';
+  roundRect(ctx, barX, barY, barW, barH, 9);
   ctx.fill();
-  ctx.fillStyle = 'rgba(255,205,86,0.78)';
+  ctx.fillStyle = 'rgba(255,205,86,0.8)';
   roundRect(ctx, middleX, barY, middleWidth * barW, barH, 8);
   ctx.fill();
   ctx.fillStyle = '#72dd66';
   roundRect(ctx, sweetX, barY - 2, pendingShot.sweetWidth * barW, barH + 4, 9);
   ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(barX + 0.5 * barW, barY - 5);
+  ctx.lineTo(barX + 0.5 * barW, barY + barH + 5);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.moveTo(markerX, barY - 8);
-  ctx.lineTo(markerX, barY + barH + 8);
+  ctx.moveTo(markerX, barY - 9);
+  ctx.lineTo(markerX, barY + barH + 9);
   ctx.stroke();
 
-  ctx.fillStyle = '#d7eac8';
-  ctx.font = '700 10px system-ui';
-  ctx.fillText('green = sweet · yellow = safe · red = bad', canvas.width / 2 + 34, panel.y + 77);
-  ctx.restore();
+  if (shapeVal !== 0) {
+    ctx.fillStyle = 'rgba(255,226,122,0.9)';
+    ctx.font = '900 12px system-ui';
+    ctx.textAlign = shapeVal < 0 ? 'right' : 'left';
+    ctx.fillText(shapeVal < 0 ? '\u21A9' : '\u21AA', shapeVal < 0 ? sweetX - 4 : sweetX + pendingShot.sweetWidth * barW + 4, barY + barH / 2 + 1);
+  }
 
+  ctx.restore();
   drawStrikeCancelButton();
 }
 
